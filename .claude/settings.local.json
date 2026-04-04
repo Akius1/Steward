@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(python3 -c \":*)",
+      "Read(//mnt/**)",
+      "Read(//mnt/c/Users/USER/AppData/Local/**)",
+      "Bash(cmd.exe /c \"where python\")",
+      "Read(//c/Users/USER/AppData/Local/Programs/Python//**)",
+      "Read(//c/Users/USER/AppData/Local/Programs/Antigravity/bin//**)",
+      "Bash(\"/c/Users/USER/AppData/Local/Programs/Python/Python313/python.exe\" -c \":*)",
+      "Bash(\"/c/Users/USER/AppData/Local/Programs/Python/Python313/python.exe\" -m pip install pypdf)",
+      "WebSearch",
+      "WebFetch(domain:goodface.agency)",
+      "WebFetch(domain:phenomenonstudio.com)",
+      "WebFetch(domain:www.eleken.co)",
+      "WebFetch(domain:adamfard.com)",
+      "WebFetch(domain:octet.design)",
+      "WebFetch(domain:theuxda.com)",
+      "WebFetch(domain:www.monarch.com)",
+      "WebFetch(domain:design4users.com)",
+      "WebFetch(domain:procreator.design)",
+      "WebFetch(domain:easternpeak.com)",
+      "WebFetch(domain:eng.wealthfront.com)",
+      "WebFetch(domain:merge.rocks)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}
