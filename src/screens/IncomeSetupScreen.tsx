@@ -223,8 +223,9 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
     const { data: { user: cu } } = await supabase.auth.getUser();
     if (!cu) { setSaving(false); return; }
 
+    // Use RPC so the lookup bypasses RLS (joining user isn't a member yet)
     const { data: hh, error: findErr } = await (supabase as any)
-      .from('households').select('*').eq('invite_code', code).single();
+      .rpc('find_household_by_invite', { code });
     if (findErr || !hh) { setSaving(false); Alert.alert('Not found', 'No household found with that code.'); return; }
 
     const { error: joinErr } = await (supabase as any)
