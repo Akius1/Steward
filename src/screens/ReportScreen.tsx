@@ -1,757 +1,455 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONTS } from '@/constants/theme';
+import { supabase } from '@/utils/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { FONTS } from '@/constants/theme';
+import type { IncomeSource, Allocation } from '@/types/database';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Grade Engine ─────────────────────────────────────────────────────────────
+function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
+  const totalIncome = sources.reduce((s, r) => s + r.amount, 0);
+  const totalAllocated = allocs.reduce((s, r) => s + r.amount, 0);
 
-const fmt = (amount: number) => '₦' + amount.toLocaleString('en-NG');
+  // 1. Allocation completeness (0–25)
+  const allocPct = totalIncome > 0 ? (totalAllocated / totalIncome) * 100 : 0;
+  const allocScore = allocPct >= 99 ? 25 : Math.round((allocPct / 100) * 25);
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+  // 2. Savings rate (0–25) — target 20%+
+  const savingsAlloc = allocs.find((a) => a.bucket_name === 'Savings');
+  const savingsPct = savingsAlloc ? Number(savingsAlloc.pct) : 0;
+  const savingsScore = savingsPct >= 20 ? 25 : Math.round((savingsPct / 20) * 25);
 
-const GRADE = 'B+';
-const SCORE = 78;
+  // 3. Housing threshold (0–20) — ceiling 30%
+  const housingAlloc = allocs.find((a) => a.bucket_name === 'Rent & Housing');
+  const housingPct = housingAlloc ? Number(housingAlloc.pct) : 0;
+  const housingScore =
+    housingPct === 0 ? 20 :
+    housingPct <= 28 ? 20 :
+    housingPct <= 30 ? 14 :
+    housingPct <= 35 ? 8 : 4;
 
-const DIMENSIONS = [
-  { label: 'Income Allocation',    score: 100, dots: 5 },
-  { label: 'Savings Rate',         score: 78,  dots: 4 },
-  { label: 'Budget Adherence',     score: 75,  dots: 4 },
-  { label: 'Milestone Progress',   score: 62,  dots: 3 },
-  { label: 'Threshold Compliance', score: 80,  dots: 4 },
-];
+  // 4. Emergency fund contribution (0–15) — target 10%+
+  const emergencyAlloc = allocs.find((a) => a.bucket_name === 'Emergency Fund');
+  const emergencyPct = emergencyAlloc ? Number(emergencyAlloc.pct) : 0;
+  const emergencyScore = emergencyPct >= 10 ? 15 : Math.round((emergencyPct / 10) * 15);
 
-type AlertStatus = 'success' | 'warning' | 'danger';
+  // 5. Diversified income (0–15) — multiple sources
+  const sourceScore = sources.length >= 3 ? 15 : sources.length === 2 ? 12 : sources.length === 1 ? 8 : 0;
 
-interface ThresholdAlert {
-  id: string;
-  category: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  value: string;
-  threshold: string;
-  status: AlertStatus;
-  statusLabel: string;
-  pct: number;
+  const total = allocScore + savingsScore + housingScore + emergencyScore + sourceScore;
+
+  const grade =
+    total >= 93 ? 'A+' :
+    total >= 87 ? 'A'  :
+    total >= 83 ? 'A-' :
+    total >= 80 ? 'B+' :
+    total >= 75 ? 'B'  :
+    total >= 70 ? 'B-' :
+    total >= 65 ? 'C+' :
+    total >= 60 ? 'C'  :
+    total >= 55 ? 'C-' :
+    total >= 50 ? 'D'  : 'F';
+
+  return {
+    grade, total,
+    dimensions: [
+      { label: 'Income Allocation',    score: allocScore,     max: 25 },
+      { label: 'Savings Rate',         score: savingsScore,   max: 25 },
+      { label: 'Housing Threshold',    score: housingScore,   max: 20 },
+      { label: 'Emergency Fund',       score: emergencyScore, max: 15 },
+      { label: 'Income Diversification', score: sourceScore,  max: 15 },
+    ],
+    allocPct, savingsPct, housingPct, emergencyPct,
+    totalIncome, totalAllocated,
+    sourceCount: sources.length,
+  };
 }
 
-const THRESHOLD_ALERTS: ThresholdAlert[] = [
-  {
-    id: '1',
-    category: 'Rent & Housing',
-    icon: 'home-outline',
-    value: '₦130,500',
-    threshold: '28–30% limit',
-    status: 'warning',
-    statusLabel: 'AMBER',
-    pct: 29,
-  },
-  {
-    id: '2',
-    category: 'Food & Groceries',
-    icon: 'restaurant-outline',
-    value: '₦45,000',
-    threshold: '8–10% limit',
-    status: 'warning',
-    statusLabel: 'AMBER',
-    pct: 10,
-  },
-  {
-    id: '3',
-    category: 'Savings Rate',
-    icon: 'business-outline',
-    value: '₦99,000',
-    threshold: '20% minimum',
-    status: 'success',
-    statusLabel: 'GREEN',
-    pct: 22,
-  },
-  {
-    id: '4',
-    category: 'Emergency Fund',
-    icon: 'shield-checkmark-outline',
-    value: '1.4 months',
-    threshold: '3-month target',
-    status: 'danger',
-    statusLabel: 'RED',
-    pct: 47,
-  },
-  {
-    id: '5',
-    category: 'Total Fixed Costs',
-    icon: 'receipt-outline',
-    value: '₦243,000',
-    threshold: '60% ceiling',
-    status: 'success',
-    statusLabel: 'GREEN',
-    pct: 54,
-  },
-];
+type GradeData = ReturnType<typeof calcGrade>;
 
-const MONTHLY_TREND = [62, 65, 70, 68, 74, 78]; // 6-month scores
+const fmt = (n: number) => '₦' + n.toLocaleString('en-NG');
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function GradeRing() {
+// ─── Components ───────────────────────────────────────────────────────────────
+function GradeRing({ grade, score, colors, isDark }: { grade: string; score: number; colors: any; isDark: boolean }) {
   const gradeColor =
-    SCORE >= 85 ? COLORS.success :
-    SCORE >= 70 ? COLORS.gold :
-    SCORE >= 55 ? COLORS.warning :
-    COLORS.danger;
+    score >= 80 ? colors.success :
+    score >= 65 ? colors.gold :
+    score >= 50 ? colors.warning :
+    colors.danger;
 
   return (
-    <View style={styles.gradeCard}>
-      {/* W.A.E.C. header label */}
-      <View style={styles.waecHeader}>
-        <View style={styles.waecDividerLine} />
-        <Text style={styles.waecLabel}>W·A·E·C  REPORT CARD</Text>
-        <View style={styles.waecDividerLine} />
+    <View style={[gr.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+      <View style={gr.header}>
+        <View style={gr.divLine} />
+        <Text style={[gr.waecLabel, { color: colors.textMuted }]}>W·A·E·C  REPORT CARD</Text>
+        <View style={gr.divLine} />
       </View>
-      <Text style={styles.waecSubLabel}>Steward Financial Intelligence</Text>
+      <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
 
-      {/* Grade circle */}
-      <View style={[styles.gradeRing, { borderColor: gradeColor }]}>
-        <View style={[styles.gradeRingInner, { backgroundColor: gradeColor + '18' }]}>
-          <Text style={[styles.gradeLetter, { color: gradeColor }]}>{GRADE}</Text>
+      <View style={[gr.ring, { borderColor: gradeColor }]}>
+        <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
+          <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
         </View>
       </View>
 
-      {/* Score line */}
-      <Text style={styles.scoreText}>
-        Score <Text style={[styles.scoreNumber, { color: gradeColor }]}>{SCORE}</Text>
-        <Text style={styles.scoreOutOf}> / 100</Text>
+      <Text style={[gr.scoreText, { color: colors.textSecondary }]}>
+        Score <Text style={[gr.scoreNum, { color: gradeColor }]}>{score}</Text>
+        <Text style={{ color: colors.textMuted }}> / 100</Text>
+      </Text>
+      <Text style={[gr.period, { color: colors.textMuted }]}>
+        {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })} · Monthly Report
       </Text>
 
-      {/* Month */}
-      <Text style={styles.gradePeriod}>April 2026 · Monthly Report</Text>
-
-      {/* Overall bar */}
-      <View style={styles.overallBarTrack}>
-        <View
-          style={[
-            styles.overallBarFill,
-            { width: `${SCORE}%` as any, backgroundColor: gradeColor },
-          ]}
-        />
+      <View style={[gr.barTrack, { backgroundColor: colors.border }]}>
+        <View style={[gr.barFill, { width: `${score}%` as any, backgroundColor: gradeColor }]} />
       </View>
 
-      {/* Share hint */}
-      <TouchableOpacity style={styles.shareRow} activeOpacity={0.7}>
-        <Ionicons name="share-social-outline" size={14} color={COLORS.textMuted} />
-        <Text style={styles.shareText}>Share your grade</Text>
+      <TouchableOpacity
+        style={gr.shareRow}
+        onPress={() =>
+          Share.share({ message: `My Steward financial grade for this month: ${grade} (${score}/100). Give every naira a purpose — stewardapp.com` })
+        }
+      >
+        <Ionicons name="share-social-outline" size={14} color={colors.textMuted} />
+        <Text style={[gr.shareText, { color: colors.textMuted }]}>Share your grade</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function DimensionRow({ item }: { item: (typeof DIMENSIONS)[0] }) {
-  const filled = Math.round((item.score / 100) * 5);
-  return (
-    <View style={styles.dimensionRow}>
-      <Text style={styles.dimensionLabel}>{item.label}</Text>
-      <View style={styles.dimensionRight}>
-        <View style={styles.dotsRow}>
-          {[1, 2, 3, 4, 5].map((d) => (
-            <View
-              key={d}
-              style={[
-                styles.dot,
-                d <= filled ? styles.dotFilled : styles.dotEmpty,
-              ]}
-            />
-          ))}
-        </View>
-        <Text style={styles.dimensionScore}>{item.score}%</Text>
-      </View>
-    </View>
-  );
-}
+const gr = StyleSheet.create({
+  card: { margin: 20, marginBottom: 8, borderRadius: 20, padding: 24, alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, width: '100%' },
+  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  waecLabel: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 2 },
+  subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
+  ring: { width: 140, height: 140, borderRadius: 70, borderWidth: 4, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  ringInner: { width: 124, height: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center' },
+  gradeLetter: { fontFamily: FONTS.display, fontSize: 56, lineHeight: 62, letterSpacing: -2 },
+  scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
+  scoreNum: { fontFamily: FONTS.display, fontSize: 22 },
+  period: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 16 },
+  barTrack: { width: '100%', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
+  barFill: { height: 6, borderRadius: 3 },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  shareText: { fontFamily: FONTS.medium, fontSize: 12 },
+});
 
-const STATUS_STYLE: Record<AlertStatus, { bg: string; text: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = {
-  success: { bg: COLORS.successBg, text: COLORS.success, icon: 'checkmark-circle-outline' },
-  warning: { bg: COLORS.warningBg, text: COLORS.warning, icon: 'warning-outline' },
-  danger:  { bg: COLORS.dangerBg,  text: COLORS.danger,  icon: 'close-circle-outline' },
-};
-
-function AlertRow({ alert }: { alert: ThresholdAlert }) {
-  const s = STATUS_STYLE[alert.status];
+// ─── Empty state ──────────────────────────────────────────────────────────────
+function EmptyReport({ colors }: { colors: any }) {
   return (
-    <View style={[styles.alertRow, { backgroundColor: s.bg + 'AA' }]}>
-      <View style={[styles.alertIconWrap, { backgroundColor: s.bg }]}>
-        <Ionicons name={alert.icon} size={16} color={s.text} />
-      </View>
-      <View style={styles.alertInfo}>
-        <Text style={styles.alertCategory}>{alert.category}</Text>
-        <Text style={styles.alertThreshold}>{alert.threshold}</Text>
-      </View>
-      <View style={styles.alertRight}>
-        <View style={[styles.alertStatusPill, { backgroundColor: s.bg }]}>
-          <Ionicons name={s.icon} size={10} color={s.text} />
-          <Text style={[styles.alertStatusText, { color: s.text }]}>{alert.statusLabel}</Text>
-        </View>
-        <Text style={styles.alertValue}>{alert.value}</Text>
-        <View style={styles.alertBarTrack}>
-          <View
-            style={[
-              styles.alertBarFill,
-              { width: `${Math.min(alert.pct, 100)}%` as any, backgroundColor: s.text },
-            ]}
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function TrendChart() {
-  const max = Math.max(...MONTHLY_TREND);
-  const months = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
-  return (
-    <View style={styles.trendCard}>
-      <View style={styles.trendHeader}>
-        <Text style={styles.trendTitle}>6-Month Score Trend</Text>
-        <Text style={styles.trendChange}>+16 pts since Nov</Text>
-      </View>
-      <View style={styles.trendBars}>
-        {MONTHLY_TREND.map((score, i) => {
-          const isLast = i === MONTHLY_TREND.length - 1;
-          const barH = Math.round((score / max) * 56);
-          return (
-            <View key={i} style={styles.trendBarCol}>
-              {isLast && (
-                <Text style={styles.trendBarLabel}>{score}</Text>
-              )}
-              <View
-                style={[
-                  styles.trendBar,
-                  { height: barH, backgroundColor: isLast ? COLORS.gold : COLORS.border },
-                ]}
-              />
-              <Text style={styles.trendMonthLabel}>{months[i]}</Text>
-            </View>
-          );
-        })}
-      </View>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <Ionicons name="stats-chart-outline" size={56} color={colors.textMuted} />
+      <Text style={{ fontFamily: FONTS.heading, fontSize: 20, color: colors.textPrimary, marginTop: 16, marginBottom: 8, textAlign: 'center' }}>
+        No data yet
+      </Text>
+      <Text style={{ fontFamily: FONTS.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 22 }}>
+        Add income sources and save your monthly allocation to generate your W.A.E.C. report.
+      </Text>
     </View>
   );
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-
 export default function ReportScreen() {
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar style="light" />
+  const { colors, isDark } = useTheme();
+  const { user } = useAuth();
 
-      {/* ── Fixed Header ─────────────────────────────────── */}
-      <View style={styles.header}>
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GradeData | null>(null);
+
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    const db = supabase as any;
+    const [{ data: sources }, { data: allocs }] = await Promise.all([
+      db.from('income_sources').select('*').eq('user_id', user.id),
+      db.from('allocations').select('*').eq('user_id', user.id).eq('month', month).eq('year', year),
+    ]);
+
+    if (sources && allocs) {
+      setData(calcGrade(sources, allocs));
+    }
+    setLoading(false);
+  }, [user, month, year]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const s = makeStyles(colors, isDark);
+
+  if (loading) {
+    return (
+      <View style={[s.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={colors.gold} size="large" />
+      </View>
+    );
+  }
+
+  const hasData = data && (data.sourceCount > 0);
+
+  return (
+    <SafeAreaView style={s.container} edges={['top']}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      {/* Header */}
+      <View style={s.header}>
         <View>
-          <Text style={styles.headerTitle}>Financial Report</Text>
-          <Text style={styles.headerSub}>April 2026</Text>
+          <Text style={s.headerTitle}>Financial Report</Text>
+          <Text style={s.headerSub}>
+            {now.toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+          </Text>
         </View>
-        <TouchableOpacity style={styles.downloadIconBtn} activeOpacity={0.8}>
-          <Ionicons name="download-outline" size={20} color={COLORS.gold} />
+        <TouchableOpacity style={s.refreshBtn} onPress={load}>
+          <Ionicons name="refresh-outline" size={20} color={colors.gold} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ── Grade Card ──────────────────────────────────── */}
-        <GradeRing />
+      {!hasData ? (
+        <EmptyReport colors={colors} />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+          {/* Grade Ring */}
+          <GradeRing grade={data!.grade} score={data!.total} colors={colors} isDark={isDark} />
 
-        {/* ── Performance Breakdown ───────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance Breakdown</Text>
-          <View style={styles.dimensionsCard}>
-            {DIMENSIONS.map((dim, i) => (
-              <View key={dim.label}>
-                {i > 0 && <View style={styles.divider} />}
-                <DimensionRow item={dim} />
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Threshold Alerts ─────────────────────────────── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Threshold Alerts</Text>
-            <View style={styles.alertCountPill}>
-              <Text style={styles.alertCountText}>2 need attention</Text>
+          {/* Performance Breakdown */}
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Performance Breakdown</Text>
+            <View style={s.dimensionsCard}>
+              {data!.dimensions.map((dim, i) => {
+                const pct = Math.round((dim.score / dim.max) * 100);
+                const filled = Math.round((pct / 100) * 5);
+                return (
+                  <View key={dim.label}>
+                    {i > 0 && <View style={s.divider} />}
+                    <View style={s.dimRow}>
+                      <Text style={s.dimLabel}>{dim.label}</Text>
+                      <View style={s.dimRight}>
+                        <View style={s.dotsRow}>
+                          {[1, 2, 3, 4, 5].map((d) => (
+                            <View
+                              key={d}
+                              style={[s.dot, d <= filled ? s.dotFilled : s.dotEmpty]}
+                            />
+                          ))}
+                        </View>
+                        <Text style={s.dimScore}>{dim.score}/{dim.max}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           </View>
-          <View style={styles.alertsCard}>
-            {THRESHOLD_ALERTS.map((alert, i) => (
-              <View key={alert.id}>
-                {i > 0 && <View style={styles.divider} />}
-                <AlertRow alert={alert} />
-              </View>
-            ))}
-          </View>
-        </View>
 
-        {/* ── 6-Month Trend ────────────────────────────────── */}
-        <View style={styles.section}>
-          <TrendChart />
-        </View>
-
-        {/* ── AI Advisory ──────────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Steward Advisory</Text>
-          <View style={styles.advisoryCard}>
-            <View style={styles.advisoryTop}>
-              <View style={styles.advisoryIconWrap}>
-                <Ionicons name="sparkles-outline" size={18} color={COLORS.gold} />
-              </View>
-              <Text style={styles.advisoryMeta}>AI · Generated April 2026</Text>
+          {/* Threshold Alerts */}
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Text style={s.sectionTitle}>Threshold Alerts</Text>
             </View>
-            <Text style={styles.advisoryText}>
-              {'"'}Your rent has been near the 30% threshold for 2 consecutive months. You would
-              need <Text style={styles.advisoryHighlight}>₦518,000/month</Text> in income for this
-              housing cost to be fully comfortable — or consider reviewing your accommodation in
-              the next 6 months.{'\n\n'}
-              Your savings rate of <Text style={styles.advisoryHighlight}>22%</Text> is strong —
-              keep this up. Redirecting just ₦3,000/month from Entertainment to your Emergency
-              Fund will close the coverage gap in 14 months.{'"'}
+            <View style={s.alertsCard}>
+              {[
+                {
+                  label: 'Rent & Housing',
+                  icon: 'home-outline' as const,
+                  value: `${data!.housingPct.toFixed(1)}%`,
+                  threshold: '28–30% limit',
+                  status: data!.housingPct > 30 ? 'danger' : data!.housingPct > 28 ? 'warning' : 'success',
+                },
+                {
+                  label: 'Savings Rate',
+                  icon: 'business-outline' as const,
+                  value: `${data!.savingsPct.toFixed(1)}%`,
+                  threshold: '20% minimum',
+                  status: data!.savingsPct < 20 ? 'danger' : 'success',
+                },
+                {
+                  label: 'Emergency Fund',
+                  icon: 'shield-checkmark-outline' as const,
+                  value: `${data!.emergencyPct.toFixed(1)}%`,
+                  threshold: '10–15% target',
+                  status: data!.emergencyPct < 10 ? 'warning' : 'success',
+                },
+                {
+                  label: 'Allocation Complete',
+                  icon: 'checkmark-circle-outline' as const,
+                  value: `${data!.allocPct.toFixed(0)}%`,
+                  threshold: '100% required',
+                  status: data!.allocPct >= 99 ? 'success' : 'danger',
+                },
+              ].map((alert, i) => {
+                const bgKey = alert.status + 'Bg';
+                const colorKey = alert.status;
+                const c = colors as Record<string, string>;
+                const bg = c[bgKey] + 'AA';
+                const fg = c[colorKey];
+                const pillIcon = alert.status === 'success' ? 'checkmark-circle-outline'
+                  : alert.status === 'warning' ? 'warning-outline' : 'close-circle-outline';
+
+                return (
+                  <View key={alert.label}>
+                    {i > 0 && <View style={s.divider} />}
+                    <View style={[s.alertRow, { backgroundColor: bg }]}>
+                      <View style={[s.alertIconWrap, { backgroundColor: c[bgKey] }]}>
+                        <Ionicons name={alert.icon} size={16} color={fg} />
+                      </View>
+                      <View style={s.alertInfo}>
+                        <Text style={s.alertLabel}>{alert.label}</Text>
+                        <Text style={s.alertThreshold}>{alert.threshold}</Text>
+                      </View>
+                      <View style={s.alertRight}>
+                        <View style={[s.statusPill, { backgroundColor: c[bgKey] }]}>
+                          <Ionicons name={pillIcon as any} size={10} color={fg} />
+                          <Text style={[s.statusText, { color: fg }]}>
+                            {alert.status.toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={s.alertValue}>{alert.value}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* AI Advisory */}
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Steward Advisory</Text>
+            <View style={[s.advisoryCard, { backgroundColor: colors.card, borderColor: colors.goldDim }]}>
+              <View style={s.advisoryTop}>
+                <View style={[s.advisoryIconWrap, { backgroundColor: colors.goldBg }]}>
+                  <Ionicons name="sparkles-outline" size={18} color={colors.gold} />
+                </View>
+                <Text style={[s.advisoryMeta, { color: colors.textMuted }]}>
+                  AI · {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+                </Text>
+              </View>
+              <Text style={[s.advisoryText, { color: colors.textSecondary }]}>
+                {'"'}
+                {data!.savingsPct >= 20
+                  ? `Your savings rate of ${data!.savingsPct.toFixed(0)}% is commendable — above the 20% benchmark. `
+                  : `Your savings rate is ${data!.savingsPct.toFixed(0)}% — below the 20% target. Consider reallocating from entertainment to savings. `}
+                {data!.housingPct > 30
+                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome))} more monthly income for this to be comfortable. `
+                  : data!.housingPct > 28
+                  ? `Housing is near the 30% threshold. Monitor this closely. `
+                  : `Housing is within the safe 28–30% range. `}
+                {data!.emergencyPct < 10
+                  ? `Your emergency fund contribution is low. Aim for 10–15% to build 3 months of coverage within a year.`
+                  : `Your emergency fund is being well-funded. Keep the momentum.`}
+                {'"'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Download CTA */}
+          <View style={s.section}>
+            <TouchableOpacity
+              style={[s.downloadBtn, { backgroundColor: colors.gold }]}
+              activeOpacity={0.85}
+              onPress={() =>
+                Alert.alert('Coming Soon', 'PDF download will be available in the next update.')
+              }
+            >
+              <Ionicons name="document-text-outline" size={20} color={isDark ? colors.bg : '#FFF'} />
+              <Text style={[s.downloadText, { color: isDark ? colors.bg : '#FFF' }]}>
+                Download Report PDF
+              </Text>
+            </TouchableOpacity>
+            <Text style={[s.downloadHint, { color: colors.textMuted }]}>
+              Shareable · Branded PDF · Coming soon
             </Text>
           </View>
-        </View>
-
-        {/* ── Download CTA ─────────────────────────────────── */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.downloadBtn} activeOpacity={0.85}>
-            <Ionicons name="document-text-outline" size={20} color={COLORS.bg} />
-            <Text style={styles.downloadBtnText}>Download April 2026 Report PDF</Text>
-          </TouchableOpacity>
-          <Text style={styles.downloadHint}>
-            Shareable · PDF · Includes all charts and advisory
-          </Text>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
+function makeStyles(colors: any, isDark: boolean) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bg },
+    scrollContent: { paddingBottom: 40 },
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    headerTitle: { fontFamily: FONTS.heading, fontSize: 24, color: colors.textPrimary, marginBottom: 2 },
+    headerSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary },
+    refreshBtn: {
+      width: 40, height: 40, borderRadius: 10,
+      backgroundColor: colors.goldBg, borderWidth: 1, borderColor: colors.goldDim,
+      alignItems: 'center', justifyContent: 'center',
+    },
 
-  // Fixed header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerTitle: {
-    fontFamily: FONTS.heading,
-    fontSize: 24,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  headerSub: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  downloadIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: COLORS.goldBg,
-    borderWidth: 1,
-    borderColor: COLORS.goldDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    section: { paddingHorizontal: 20, marginTop: 20, marginBottom: 4 },
+    sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary, marginBottom: 10 },
+    sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    divider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
-  // Grade card
-  gradeCard: {
-    margin: 20,
-    marginBottom: 8,
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 24,
-    alignItems: 'center',
-  },
-  waecHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  waecDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  waecLabel: {
-    fontFamily: FONTS.semibold,
-    fontSize: 10,
-    color: COLORS.textMuted,
-    letterSpacing: 2,
-  },
-  waecSubLabel: {
-    fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginBottom: 24,
-  },
-  gradeRing: {
-    width: 136,
-    height: 136,
-    borderRadius: 68,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  gradeRingInner: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gradeLetter: {
-    fontFamily: FONTS.display,
-    fontSize: 60,
-    lineHeight: 66,
-    letterSpacing: -2,
-  },
-  scoreText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  scoreNumber: {
-    fontFamily: FONTS.display,
-    fontSize: 22,
-  },
-  scoreOutOf: {
-    fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  gradePeriod: {
-    fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginBottom: 16,
-  },
-  overallBarTrack: {
-    width: '100%',
-    height: 6,
-    backgroundColor: COLORS.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  overallBarFill: {
-    height: 6,
-    borderRadius: 3,
-  },
-  shareRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  shareText: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
+    dimensionsCard: {
+      backgroundColor: colors.card, borderRadius: 14,
+      borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
+    },
+    dimRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
+    dimLabel: { fontFamily: FONTS.medium, fontSize: 13, color: colors.textSecondary, flex: 1 },
+    dimRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    dotsRow: { flexDirection: 'row', gap: 4 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    dotFilled: { backgroundColor: colors.gold },
+    dotEmpty: { backgroundColor: colors.border },
+    dimScore: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.textPrimary, minWidth: 36, textAlign: 'right' },
 
-  // Sections
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontFamily: FONTS.semibold,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    marginBottom: 10,
-  },
-  alertCountPill: {
-    backgroundColor: COLORS.warningBg,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  alertCountText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 11,
-    color: COLORS.warning,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 2,
-  },
+    alertsCard: {
+      backgroundColor: colors.card, borderRadius: 14,
+      borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
+    },
+    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+    alertIconWrap: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+    alertInfo: { flex: 1 },
+    alertLabel: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary, marginBottom: 2 },
+    alertThreshold: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
+    alertRight: { alignItems: 'flex-end', gap: 4 },
+    statusPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3 },
+    statusText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.5 },
+    alertValue: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary },
 
-  // Dimensions card
-  dimensionsCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  dimensionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  dimensionLabel: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    flex: 1,
-  },
-  dimensionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dotFilled: {
-    backgroundColor: COLORS.gold,
-  },
-  dotEmpty: {
-    backgroundColor: COLORS.border,
-  },
-  dimensionScore: {
-    fontFamily: FONTS.semibold,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    minWidth: 38,
-    textAlign: 'right',
-  },
+    advisoryCard: {
+      borderRadius: 14, borderWidth: 1, padding: 16,
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
+    },
+    advisoryTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    advisoryIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    advisoryMeta: { fontFamily: FONTS.medium, fontSize: 12 },
+    advisoryText: { fontFamily: FONTS.headingItalic, fontSize: 14, lineHeight: 22 },
 
-  // Alerts card
-  alertsCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  alertRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  alertIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alertInfo: {
-    flex: 1,
-  },
-  alertCategory: {
-    fontFamily: FONTS.semibold,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  alertThreshold: {
-    fontFamily: FONTS.regular,
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  alertRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-    minWidth: 80,
-  },
-  alertStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: 5,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  alertStatusText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 9,
-    letterSpacing: 0.5,
-  },
-  alertValue: {
-    fontFamily: FONTS.semibold,
-    fontSize: 12,
-    color: COLORS.textPrimary,
-  },
-  alertBarTrack: {
-    width: 80,
-    height: 3,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  alertBarFill: {
-    height: 3,
-    borderRadius: 2,
-  },
-
-  // Trend chart
-  trendCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-  },
-  trendHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  trendTitle: {
-    fontFamily: FONTS.semibold,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-  },
-  trendChange: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: COLORS.emerald,
-  },
-  trendBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 80,
-  },
-  trendBarCol: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-  },
-  trendBarLabel: {
-    fontFamily: FONTS.semibold,
-    fontSize: 11,
-    color: COLORS.gold,
-    marginBottom: 2,
-  },
-  trendBar: {
-    width: 28,
-    borderRadius: 4,
-    minHeight: 4,
-  },
-  trendMonthLabel: {
-    fontFamily: FONTS.regular,
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-
-  // AI Advisory
-  advisoryCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.goldDim,
-    padding: 16,
-  },
-  advisoryTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  advisoryIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.goldBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  advisoryMeta: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  advisoryText: {
-    fontFamily: FONTS.headingItalic,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-  },
-  advisoryHighlight: {
-    fontFamily: FONTS.headingItalic,
-    color: COLORS.gold,
-  },
-
-  // Download button
-  downloadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.gold,
-    borderRadius: 14,
-    paddingVertical: 16,
-    marginBottom: 8,
-  },
-  downloadBtnText: {
-    fontFamily: FONTS.semibold,
-    fontSize: 15,
-    color: COLORS.bg,
-  },
-  downloadHint: {
-    fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-});
+    downloadBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 10, borderRadius: 14, paddingVertical: 16, marginBottom: 8,
+    },
+    downloadText: { fontFamily: FONTS.semibold, fontSize: 15 },
+    downloadHint: { fontFamily: FONTS.regular, fontSize: 12, textAlign: 'center', marginTop: 4 },
+  });
+}
