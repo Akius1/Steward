@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Modal, TextInput, ActivityIndicator, Alert, RefreshControl,
-  Pressable, Animated, Share, Clipboard,
+  Pressable, Animated, Share, Clipboard, KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,61 +84,106 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, h
 
   const sym = CURRENCIES[currency].symbol;
   const ms = makeModalStyles(colors, isDark);
+  const insets = useSafeAreaInsets();
+  const amountRef = useRef<TextInput>(null);
+  const subtitleRef = useRef<TextInput>(null);
+
+  function handleClose() { Keyboard.dismiss(); onClose(); }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={ms.overlay} onPress={onClose}>
-        <Pressable onPress={undefined}>
-          <View style={ms.sheet}>
-            <View style={ms.handle} />
-            <Text style={ms.title}>Add Income Source</Text>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={ms.overlay} onPress={handleClose}>
+          <Pressable onPress={undefined}>
+            <ScrollView
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: insets.bottom + 8 }}
+            >
+              <View style={ms.sheet}>
+                <View style={ms.handle} />
+                <Text style={ms.title}>Add Income Source</Text>
 
-            {/* Source name */}
-            <Text style={ms.label}>SOURCE NAME</Text>
-            <TextInput style={ms.input} placeholder="e.g. GTBank Salary"
-              placeholderTextColor={colors.textMuted} value={name} onChangeText={setName} />
+                {/* Source name */}
+                <Text style={ms.label}>SOURCE NAME</Text>
+                <TextInput
+                  style={ms.input}
+                  placeholder="e.g. GTBank Salary"
+                  placeholderTextColor={colors.textMuted}
+                  value={name}
+                  onChangeText={setName}
+                  returnKeyType="next"
+                  onSubmitEditing={() => amountRef.current?.focus()}
+                  blurOnSubmit={false}
+                  autoCorrect={false}
+                />
 
-            {/* Type pills */}
-            <Text style={ms.label}>TYPE</Text>
-            <View style={ms.typeRow}>
-              {INCOME_TYPES.map((t) => {
-                const sel = type === t;
-                const b = TYPE_BADGE[t];
-                return (
-                  <TouchableOpacity key={t}
-                    style={[ms.typePill, sel && { backgroundColor: b.bg, borderColor: b.text }]}
-                    onPress={() => setType(t)}>
-                    <Text style={[ms.typePillTxt, sel && { color: b.text, fontFamily: FONTS.semibold }]}>{t}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                {/* Type pills */}
+                <Text style={ms.label}>TYPE</Text>
+                <View style={ms.typeRow}>
+                  {INCOME_TYPES.map((t) => {
+                    const sel = type === t;
+                    const b = TYPE_BADGE[t];
+                    return (
+                      <TouchableOpacity key={t}
+                        style={[ms.typePill, sel && { backgroundColor: b.bg, borderColor: b.text }]}
+                        onPress={() => setType(t)}>
+                        <Text style={[ms.typePillTxt, sel && { color: b.text, fontFamily: FONTS.semibold }]}>{t}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
-            {/* Amount */}
-            <Text style={ms.label}>MONTHLY AMOUNT ({sym})</Text>
-            <View style={ms.amountRow}>
-              <Text style={ms.amountSym}>{sym}</Text>
-              <TextInput style={[ms.input, ms.amountInput]}
-                placeholder="0" placeholderTextColor={colors.textMuted}
-                value={amountText} onChangeText={handleAmountChange}
-                keyboardType="numeric" />
-            </View>
+                {/* Amount */}
+                <Text style={ms.label}>MONTHLY AMOUNT ({sym})</Text>
+                <View style={ms.amountRow}>
+                  <Text style={ms.amountSym}>{sym}</Text>
+                  <TextInput
+                    ref={amountRef}
+                    style={[ms.input, ms.amountInput]}
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                    value={amountText}
+                    onChangeText={handleAmountChange}
+                    keyboardType="numeric"
+                    returnKeyType="next"
+                    onSubmitEditing={() => subtitleRef.current?.focus()}
+                    blurOnSubmit={false}
+                    selectTextOnFocus
+                    cursorColor={colors.gold}
+                    selectionColor={colors.gold + '55'}
+                  />
+                </View>
 
-            {/* Description */}
-            <Text style={ms.label}>DESCRIPTION (OPTIONAL)</Text>
-            <TextInput style={ms.input} placeholder="e.g. Fixed monthly income"
-              placeholderTextColor={colors.textMuted} value={subtitle} onChangeText={setSubtitle} />
+                {/* Description */}
+                <Text style={ms.label}>DESCRIPTION (OPTIONAL)</Text>
+                <TextInput
+                  ref={subtitleRef}
+                  style={ms.input}
+                  placeholder="e.g. Fixed monthly income"
+                  placeholderTextColor={colors.textMuted}
+                  value={subtitle}
+                  onChangeText={setSubtitle}
+                  returnKeyType="done"
+                  onSubmitEditing={handleAdd}
+                />
 
-            <TouchableOpacity style={ms.addBtn} onPress={handleAdd} disabled={saving} activeOpacity={0.85}>
-              {saving ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
-                : <Text style={ms.addBtnTxt}>Add Source</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={ms.cancelRow} onPress={onClose}>
-              <Text style={ms.cancelTxt}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity style={ms.addBtn} onPress={handleAdd} disabled={saving} activeOpacity={0.85}>
+                  {saving ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
+                    : <Text style={ms.addBtnTxt}>Add Source</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={ms.cancelRow} onPress={handleClose}>
+                  <Text style={ms.cancelTxt}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -360,8 +406,15 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
                     Create a shared budget space for you and your partner or family.
                   </Text>
                   <Text style={ms.label}>HOUSEHOLD NAME</Text>
-                  <TextInput style={ms.input} placeholder="e.g. The Stewards"
-                    placeholderTextColor={colors.textMuted} value={hhName} onChangeText={setHhName} />
+                  <TextInput
+                    style={ms.input}
+                    placeholder="e.g. The Stewards"
+                    placeholderTextColor={colors.textMuted}
+                    value={hhName}
+                    onChangeText={setHhName}
+                    returnKeyType="done"
+                    onSubmitEditing={createHousehold}
+                  />
                   <TouchableOpacity style={ms.addBtn} onPress={createHousehold} disabled={saving}>
                     {saving ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
                       : <Text style={ms.addBtnTxt}>Create Household</Text>}
@@ -380,10 +433,18 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
                     Enter the 6-character invite code from your partner or family member.
                   </Text>
                   <Text style={ms.label}>INVITE CODE</Text>
-                  <TextInput style={[ms.input, { letterSpacing: 4, fontSize: 20, textAlign: 'center', fontFamily: FONTS.heading }]}
-                    placeholder="XXXXXX" placeholderTextColor={colors.textMuted}
-                    value={inviteInput} onChangeText={(t) => setInviteInput(t.toUpperCase())}
-                    autoCapitalize="characters" maxLength={6} />
+                  <TextInput
+                    style={[ms.input, { letterSpacing: 4, fontSize: 20, textAlign: 'center', fontFamily: FONTS.heading }]}
+                    placeholder="XXXXXX"
+                    placeholderTextColor={colors.textMuted}
+                    value={inviteInput}
+                    onChangeText={(t) => setInviteInput(t.toUpperCase())}
+                    autoCapitalize="characters"
+                    maxLength={6}
+                    returnKeyType="done"
+                    onSubmitEditing={joinHousehold}
+                    autoCorrect={false}
+                  />
                   <TouchableOpacity style={ms.addBtn} onPress={joinHousehold} disabled={saving}>
                     {saving ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
                       : <Text style={ms.addBtnTxt}>Join Household</Text>}
@@ -787,13 +848,15 @@ function makeModalStyles(colors: any, isDark: boolean) {
     title: { fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 20 },
     label: { fontFamily: FONTS.medium, fontSize: 11, color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 },
     input: {
-      backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border,
-      paddingHorizontal: 14, paddingVertical: 13, fontFamily: FONTS.medium, fontSize: 15,
+      backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border,
+      paddingHorizontal: 14, paddingVertical: 14, fontFamily: FONTS.medium, fontSize: 15,
       color: colors.textPrimary, marginBottom: 18,
+      // Prevent invisible text on Android
+      includeFontPadding: false,
     },
     amountRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
     amountSym: { fontFamily: FONTS.heading, fontSize: 22, color: colors.gold, marginRight: 8 },
-    amountInput: { flex: 1, marginBottom: 0, fontSize: 22, fontFamily: FONTS.heading, color: colors.gold },
+    amountInput: { flex: 1, marginBottom: 0, fontSize: 22, fontFamily: FONTS.heading, color: colors.gold, includeFontPadding: false },
     typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
     typePill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: colors.border },
     typePillTxt: { fontFamily: FONTS.medium, fontSize: 12, color: colors.textSecondary },
