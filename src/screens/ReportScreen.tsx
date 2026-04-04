@@ -16,6 +16,7 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
+import { fmt } from '@/utils/currency';
 import type { IncomeSource, Allocation } from '@/types/database';
 
 // ─── Grade Engine ─────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
 
 type GradeData = ReturnType<typeof calcGrade>;
 
-const fmt = (n: number) => '₦' + n.toLocaleString('en-NG');
+// fmt imported from utils/currency
 
 // ─── Components ───────────────────────────────────────────────────────────────
 function GradeRing({ grade, score, colors, isDark }: { grade: string; score: number; colors: any; isDark: boolean }) {
@@ -166,7 +167,7 @@ function EmptyReport({ colors }: { colors: any }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReportScreen() {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, household, currency } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GradeData | null>(null);
@@ -180,10 +181,13 @@ export default function ReportScreen() {
     setLoading(true);
 
     const db = supabase as any;
-    const [{ data: sources }, { data: allocs }] = await Promise.all([
-      db.from('income_sources').select('*').eq('user_id', user.id),
-      db.from('allocations').select('*').eq('user_id', user.id).eq('month', month).eq('year', year),
-    ]);
+    const srcQ = household
+      ? db.from('income_sources').select('*').eq('household_id', household.id)
+      : db.from('income_sources').select('*').eq('user_id', user.id).is('household_id', null);
+    const allQ = household
+      ? db.from('allocations').select('*').eq('household_id', household.id).eq('month', month).eq('year', year)
+      : db.from('allocations').select('*').eq('user_id', user.id).is('household_id', null).eq('month', month).eq('year', year);
+    const [{ data: sources }, { data: allocs }] = await Promise.all([srcQ, allQ]);
 
     if (sources && allocs) {
       setData(calcGrade(sources, allocs));
@@ -348,7 +352,7 @@ export default function ReportScreen() {
                   ? `Your savings rate of ${data!.savingsPct.toFixed(0)}% is commendable — above the 20% benchmark. `
                   : `Your savings rate is ${data!.savingsPct.toFixed(0)}% — below the 20% target. Consider reallocating from entertainment to savings. `}
                 {data!.housingPct > 30
-                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome))} more monthly income for this to be comfortable. `
+                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome), currency)} more monthly income for this to be comfortable. `
                   : data!.housingPct > 28
                   ? `Housing is near the 30% threshold. Monitor this closely. `
                   : `Housing is within the safe 28–30% range. `}

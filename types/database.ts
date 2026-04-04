@@ -1,8 +1,11 @@
+import type { CurrencyCode } from '@/utils/currency';
+
 export type IncomeType = 'SALARY' | 'FREELANCE' | 'BUSINESS' | 'GIFT' | 'SIDE INCOME';
 
 export interface IncomeSource {
   id: string;
   user_id: string;
+  household_id: string | null;
   name: string;
   type: IncomeType;
   amount: number;
@@ -13,6 +16,7 @@ export interface IncomeSource {
 export interface Allocation {
   id: string;
   user_id: string;
+  household_id: string | null;
   month: number;
   year: number;
   bucket_name: string;
@@ -36,10 +40,28 @@ export interface Milestone {
 export interface Profile {
   id: string;
   name: string;
+  currency: CurrencyCode;
   created_at: string;
 }
 
-// Supabase DB type stub (enough to type the client)
+export interface Household {
+  id: string;
+  name: string;
+  owner_id: string;
+  invite_code: string;
+  currency: CurrencyCode;
+  created_at: string;
+}
+
+export interface HouseholdMember {
+  household_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at: string;
+  // joined from profiles:
+  profile?: Profile;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -62,6 +84,16 @@ export interface Database {
         Row: Milestone;
         Insert: Omit<Milestone, 'id' | 'created_at'>;
         Update: Partial<Omit<Milestone, 'id' | 'user_id' | 'created_at'>>;
+      };
+      households: {
+        Row: Household;
+        Insert: Omit<Household, 'id' | 'created_at'>;
+        Update: Partial<Omit<Household, 'id' | 'owner_id' | 'created_at'>>;
+      };
+      household_members: {
+        Row: HouseholdMember;
+        Insert: Omit<HouseholdMember, 'joined_at' | 'profile'>;
+        Update: Partial<Pick<HouseholdMember, 'role'>>;
       };
     };
   };

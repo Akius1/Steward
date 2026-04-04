@@ -18,9 +18,7 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BUCKET_DEFAULTS, FONTS } from '@/constants/theme';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt = (n: number) => '₦' + Math.abs(n).toLocaleString('en-NG');
+import { fmt, formatInput, parseInput, CURRENCIES } from '@/utils/currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BucketState {
@@ -56,7 +54,7 @@ function getThreshold(bucketName: string, pct: number): { status: ThresholdStatu
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AllocationScreen() {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, household, currency } = useAuth();
 
   const [totalIncome, setTotalIncome] = useState(0);
   const [buckets, setBuckets] = useState<BucketState[]>(
@@ -83,21 +81,21 @@ export default function AllocationScreen() {
     if (!user) return;
     setLoading(true);
 
-    // Get total income from sources
-    const { data: sources } = await (supabase as any)
-      .from('income_sources')
-      .select('amount')
-      .eq('user_id', user.id);
+    // Get total income — household-aware
+    let incomeQuery = (supabase as any).from('income_sources').select('amount');
+    incomeQuery = household
+      ? incomeQuery.eq('household_id', household.id)
+      : incomeQuery.eq('user_id', user.id).is('household_id', null);
+    const { data: sources } = await incomeQuery;
     const income = ((sources ?? []) as Array<{ amount: number }>).reduce((s, r) => s + r.amount, 0);
     setTotalIncome(income);
 
-    // Get existing allocations for this month
-    const { data: existing } = await (supabase as any)
-      .from('allocations')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('month', month)
-      .eq('year', year);
+    // Get existing allocations — household-aware
+    let allocQuery = (supabase as any).from('allocations').select('*').eq('month', month).eq('year', year);
+    allocQuery = household
+      ? allocQuery.eq('household_id', household.id)
+      : allocQuery.eq('user_id', user.id).is('household_id', null);
+    const { data: existing } = await allocQuery;
 
     if (existing && existing.length > 0) {
       setBuckets((prev) =>
@@ -124,7 +122,7 @@ export default function AllocationScreen() {
   useEffect(() => { load(); }, [load]);
 
   function updateAmount(bucketName: string, raw: string) {
-    const n = parseInt(raw.replace(/[^0-9]/g, '')) || 0;
+    const n = parseInput(raw);
     setBuckets((prev) => prev.map((b) => (b.name === bucketName ? { ...b, amount: n } : b)));
   }
 
@@ -138,14 +136,13 @@ export default function AllocationScreen() {
       Alert.alert(
         'Allocation incomplete',
         remaining > 0
-          ? `You still have ${fmt(remaining)} unallocated. Steward requires 100% allocation.`
-          : `You've over-allocated by ${fmt(Math.abs(remaining))}. Reduce a bucket to fix this.`
+          ? `You still have ${fmt(remaining, currency)} unallocated. Steward requires 100% allocation.`
+          : `You've over-allocated by ${fmt(Math.abs(remaining), currency)}. Reduce a bucket to fix this.`
       );
       return;
     }
 
     setSaving(true);
-    // Get live user ID from Supabase session to match auth.uid() in RLS check
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) {
       setSaving(false);
@@ -154,6 +151,7 @@ export default function AllocationScreen() {
     }
     const rows = buckets.map((b) => ({
       user_id: currentUser.id,
+      household_id: household?.id ?? null,
       month,
       year,
       bucket_name: b.name,
@@ -258,7 +256,7 @@ export default function AllocationScreen() {
             <View style={s.summaryTop}>
               <View>
                 <Text style={s.summaryLabel}>TOTAL INCOME</Text>
-                <Text style={s.summaryTotal}>{fmt(totalIncome)}</Text>
+                <Text style={s.summaryTotal}>{fmt(totalIncome, currency)}</Text>
               </View>
               <View style={[
                 s.remainingPill,
@@ -273,7 +271,7 @@ export default function AllocationScreen() {
                   s.remainingText,
                   { color: isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger },
                 ]}>
-                  {isBalanced ? 'Balanced ✓' : remaining > 0 ? `${fmt(remaining)} left` : `${fmt(remaining)} over`}
+                  {isBalanced ? 'Balanced ✓' : remaining > 0 ? `${fmt(remaining, currency)} left` : `${fmt(Math.abs(remaining), currency)} over`}
                 </Text>
               </View>
             </View>
@@ -328,7 +326,7 @@ export default function AllocationScreen() {
               <TouchableOpacity style={s.autoBalanceBtn} onPress={autoBalance}>
                 <Ionicons name="git-merge-outline" size={14} color={colors.gold} />
                 <Text style={s.autoBalanceText}>
-                  Auto-balance ({remaining > 0 ? '+' : ''}{fmt(remaining)} → Savings)
+                  Auto-balance ({remaining > 0 ? '+' : '-'}{fmt(Math.abs(remaining), currency)} → Savings)
                 </Text>
               </TouchableOpacity>
             )}
@@ -337,7 +335,7 @@ export default function AllocationScreen() {
           {/* ── Bucket Cards ─────────────────────────────────── */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Budget Buckets</Text>
-            <Text style={s.sectionSubtitle}>Tap any amount to edit · Must total {fmt(totalIncome)}</Text>
+            <Text style={s.sectionSubtitle}>Tap any amount to edit · Must total {fmt(totalIncome, currency)}</Text>
 
             {buckets.map((bucket, i) => {
               const pct = totalIncome > 0 ? Number(((bucket.amount / totalIncome) * 100).toFixed(1)) : 0;
@@ -363,10 +361,10 @@ export default function AllocationScreen() {
                       <Text style={[s.bucketPct, { color: bucket.color }]}>{pct}% of income</Text>
                     </View>
                     <View style={[s.amountWrap, isFocused && { borderColor: bucket.color }]}>
-                      <Text style={s.currencySign}>₦</Text>
+                      <Text style={s.currencySign}>{CURRENCIES[currency].symbol}</Text>
                       <TextInput
                         style={[s.amountInput, { color: colors.textPrimary }]}
-                        value={bucket.amount > 0 ? bucket.amount.toString() : ''}
+                        value={bucket.amount > 0 ? formatInput(bucket.amount.toString()) : ''}
                         placeholder="0"
                         placeholderTextColor={colors.textMuted}
                         onChangeText={(v) => updateAmount(bucket.name, v)}
