@@ -224,9 +224,11 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
     if (!cu) { setSaving(false); return; }
 
     // Use RPC so the lookup bypasses RLS (joining user isn't a member yet)
-    const { data: hh, error: findErr } = await (supabase as any)
+    // RPC returns an array even with limit 1, so grab the first element
+    const { data: hhRows, error: findErr } = await (supabase as any)
       .rpc('find_household_by_invite', { code });
-    if (findErr || !hh) { setSaving(false); Alert.alert('Not found', 'No household found with that code.'); return; }
+    const hh = Array.isArray(hhRows) ? hhRows[0] : hhRows;
+    if (findErr || !hh?.id) { setSaving(false); Alert.alert('Not found', 'No household found with that code.'); return; }
 
     const { error: joinErr } = await (supabase as any)
       .from('household_members').insert({ household_id: hh.id, user_id: cu.id, role: 'member' });
