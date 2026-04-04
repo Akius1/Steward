@@ -24,7 +24,9 @@
       "WebFetch(domain:eng.wealthfront.com)",
       "WebFetch(domain:merge.rocks)",
       "Bash(npm install:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(gh pr:*)",
+      "Bash(where gh:*)"
     ]
   }
 }
