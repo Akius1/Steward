@@ -54,12 +54,12 @@ export interface Household {
 }
 
 export interface HouseholdMember {
-  household_id: string;
+  household_id?: string;
   user_id: string;
   role: 'owner' | 'member';
   joined_at: string;
-  // joined from profiles:
-  profile?: Profile;
+  // flattened from get_household_members() RPC:
+  name?: string;
 }
 
 export interface Database {
