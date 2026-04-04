@@ -7,7 +7,7 @@
 alter table public.profiles
   add column if not exists currency text not null default 'NGN';
 
--- ── 2. Create households (no cross-table policy yet) ──────────
+-- ── 2. Create households table ────────────────────────────────
 create table if not exists public.households (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
@@ -18,7 +18,6 @@ create table if not exists public.households (
 );
 alter table public.households enable row level security;
 
--- Simple owner policies — no reference to household_members yet
 create policy "households: owner insert" on public.households
   for insert with check (auth.uid() = owner_id);
 
@@ -28,7 +27,7 @@ create policy "households: owner update" on public.households
 create policy "households: owner delete" on public.households
   for delete using (auth.uid() = owner_id);
 
--- ── 3. Create household_members ───────────────────────────────
+-- ── 3. Create household_members table ────────────────────────
 create table if not exists public.household_members (
   household_id uuid references public.households on delete cascade not null,
   user_id      uuid references auth.users on delete cascade not null,
@@ -38,28 +37,35 @@ create table if not exists public.household_members (
 );
 alter table public.household_members enable row level security;
 
--- ── 4. Now add cross-table SELECT policy on households ────────
--- (household_members exists now so the subquery is valid)
+-- ── 4. Security-definer helper — reads household_members WITHOUT
+--       triggering its own RLS (prevents infinite recursion) ──
+create or replace function public.is_household_member(hh_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.household_members
+    where household_id = hh_id
+      and user_id = auth.uid()
+  );
+$$;
+
+-- ── 5. households SELECT — uses the helper, not a direct subquery
 create policy "households: members read" on public.households
   for select using (
     auth.uid() = owner_id
-    or exists (
-      select 1 from public.household_members m
-      where m.household_id = public.households.id
-        and m.user_id = auth.uid()
-    )
+    or public.is_household_member(id)
   );
 
--- ── 5. Policies on household_members ──────────────────────────
-create policy "hm: members read" on public.household_members
-  for select using (
-    auth.uid() = user_id
-    or exists (
-      select 1 from public.household_members m2
-      where m2.household_id = household_id
-        and m2.user_id = auth.uid()
-    )
-  );
+-- ── 6. household_members policies (non-recursive) ─────────────
+-- Each user may only SELECT their own membership row.
+-- Checking whether a user belongs to a household should go through
+-- is_household_member(), not a self-referencing subquery.
+create policy "hm: own row" on public.household_members
+  for select using (auth.uid() = user_id);
 
 create policy "hm: join via invite" on public.household_members
   for insert with check (auth.uid() = user_id);
@@ -73,10 +79,12 @@ create policy "hm: leave or owner remove" on public.household_members
     )
   );
 
--- ── 6. Add household_id FK to income_sources ──────────────────
+-- ── 7. Add household_id FK to income_sources ──────────────────
 alter table public.income_sources
-  add column if not exists household_id uuid references public.households on delete set null;
+  add column if not exists household_id uuid
+    references public.households on delete set null;
 
--- ── 7. Add household_id FK to allocations ─────────────────────
+-- ── 8. Add household_id FK to allocations ─────────────────────
 alter table public.allocations
-  add column if not exists household_id uuid references public.households on delete set null;
+  add column if not exists household_id uuid
+    references public.households on delete set null;
