@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
@@ -30,6 +30,8 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [confirmed, setConfirmed] = useState(false); // show "check email" screen
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [pwFocused, setPwFocused] = useState(false);
@@ -47,7 +49,7 @@ export default function SignupScreen() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: { data: { name: name.trim() } },
@@ -55,17 +57,36 @@ export default function SignupScreen() {
     setLoading(false);
     if (error) {
       Alert.alert('Sign Up Failed', error.message);
+      return;
     }
-    // On success, AuthContext picks up the session and the root layout redirects to (tabs)
+    // If email confirmation is required, session is null but user is created
+    if (data.session) {
+      // Email confirmation disabled — session is live, AuthContext will redirect
+    } else {
+      // Email confirmation required — show "check inbox" screen
+      setConfirmed(true);
+    }
   }
 
+  async function handleResend() {
+    setResending(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+    setResending(false);
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Sent!', 'Another confirmation email is on its way.');
+    }
+  }
+
+  // ─── Styles ────────────────────────────────────────────────────────────────
   const s = StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
     kav: { flex: 1 },
     scroll: { flexGrow: 1 },
 
     deco: {
-      height: SCREEN_H * 0.32,
+      height: SCREEN_H * 0.28,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -156,11 +177,10 @@ export default function SignupScreen() {
       paddingVertical: 0,
     },
 
-    // Password strength
     strengthRow: { flexDirection: 'row', gap: 4, marginTop: -12, marginBottom: 20 },
     strengthBar: { flex: 1, height: 3, borderRadius: 2 },
 
-    signUpBtn: {
+    btn: {
       backgroundColor: colors.gold,
       borderRadius: 14,
       height: 54,
@@ -169,7 +189,7 @@ export default function SignupScreen() {
       marginTop: 8,
       marginBottom: 20,
     },
-    signUpText: {
+    btnText: {
       fontFamily: FONTS.semibold,
       fontSize: 15,
       color: isDark ? colors.bg : '#FFFFFF',
@@ -199,9 +219,81 @@ export default function SignupScreen() {
       lineHeight: 16,
     },
     termsLink: { color: colors.gold },
+
+    // ── Confirmation screen ──────────────────────────────────
+    confirmWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+      paddingBottom: 40,
+    },
+    envelopeCircle: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: colors.goldBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 28,
+      borderWidth: 1,
+      borderColor: colors.gold + '30',
+    },
+    confirmTitle: {
+      fontFamily: FONTS.heading,
+      fontSize: 26,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    confirmBody: {
+      fontFamily: FONTS.regular,
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 8,
+    },
+    confirmEmail: {
+      fontFamily: FONTS.semibold,
+      color: colors.gold,
+    },
+    confirmNote: {
+      fontFamily: FONTS.regular,
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 36,
+    },
+    resendBtn: {
+      borderWidth: 1.5,
+      borderColor: colors.gold,
+      borderRadius: 14,
+      height: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      marginBottom: 16,
+    },
+    resendText: {
+      fontFamily: FONTS.semibold,
+      fontSize: 14,
+      color: colors.gold,
+    },
+    backBtn: {
+      height: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    backText: {
+      fontFamily: FONTS.medium,
+      fontSize: 14,
+      color: colors.textMuted,
+    },
   });
 
-  // Password strength indicator
+  // Password strength
   const pwStrength =
     password.length === 0 ? 0 :
     password.length < 6   ? 1 :
@@ -216,6 +308,61 @@ export default function SignupScreen() {
     colors.success,
   ];
 
+  // ─── Confirmation pending screen ──────────────────────────────────────────
+  if (confirmed) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <View style={s.deco}>
+          <TouchableOpacity style={s.themeBtn} onPress={toggleColorMode}>
+            <Ionicons
+              name={isDark ? 'sunny-outline' : 'moon-outline'}
+              size={18}
+              color={colors.gold}
+            />
+          </TouchableOpacity>
+          <View style={[s.ring, s.r3]} />
+          <View style={[s.ring, s.r2]} />
+          <View style={[s.ring, s.r1]} />
+          <Text style={s.wordmark}>Steward</Text>
+          <Text style={s.tagline}>Your personal financial OS</Text>
+        </View>
+
+        <View style={[s.card, s.confirmWrap]}>
+          <View style={s.envelopeCircle}>
+            <Ionicons name="mail-outline" size={40} color={colors.gold} />
+          </View>
+
+          <Text style={s.confirmTitle}>Check your inbox</Text>
+          <Text style={s.confirmBody}>
+            We sent a confirmation link to{'\n'}
+            <Text style={s.confirmEmail}>{email.trim()}</Text>
+          </Text>
+          <Text style={s.confirmNote}>
+            Click the link in that email to activate your account.{'\n'}
+            Be sure to check your spam folder too.
+          </Text>
+
+          <TouchableOpacity
+            style={s.resendBtn}
+            onPress={handleResend}
+            disabled={resending}
+          >
+            {resending
+              ? <ActivityIndicator color={colors.gold} />
+              : <Text style={s.resendText}>Resend confirmation email</Text>
+            }
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.backBtn} onPress={() => router.replace('/(auth)/login')}>
+            <Text style={s.backText}>Back to Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Signup form ──────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -247,17 +394,8 @@ export default function SignupScreen() {
 
             {/* Name */}
             <Text style={s.fieldLabel}>Full name</Text>
-            <View
-              style={[
-                s.fieldWrap,
-                { borderBottomColor: nameFocused ? colors.gold : colors.border },
-              ]}
-            >
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={nameFocused ? colors.gold : colors.textMuted}
-              />
+            <View style={[s.fieldWrap, { borderBottomColor: nameFocused ? colors.gold : colors.border }]}>
+              <Ionicons name="person-outline" size={18} color={nameFocused ? colors.gold : colors.textMuted} />
               <TextInput
                 style={s.fieldInput}
                 placeholder="Andrew Steward"
@@ -274,17 +412,8 @@ export default function SignupScreen() {
 
             {/* Email */}
             <Text style={s.fieldLabel}>Email address</Text>
-            <View
-              style={[
-                s.fieldWrap,
-                { borderBottomColor: emailFocused ? colors.gold : colors.border },
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={18}
-                color={emailFocused ? colors.gold : colors.textMuted}
-              />
+            <View style={[s.fieldWrap, { borderBottomColor: emailFocused ? colors.gold : colors.border }]}>
+              <Ionicons name="mail-outline" size={18} color={emailFocused ? colors.gold : colors.textMuted} />
               <TextInput
                 ref={emailRef}
                 style={s.fieldInput}
@@ -303,17 +432,8 @@ export default function SignupScreen() {
 
             {/* Password */}
             <Text style={s.fieldLabel}>Password</Text>
-            <View
-              style={[
-                s.fieldWrap,
-                { borderBottomColor: pwFocused ? colors.gold : colors.border },
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={18}
-                color={pwFocused ? colors.gold : colors.textMuted}
-              />
+            <View style={[s.fieldWrap, { borderBottomColor: pwFocused ? colors.gold : colors.border }]}>
+              <Ionicons name="lock-closed-outline" size={18} color={pwFocused ? colors.gold : colors.textMuted} />
               <TextInput
                 ref={pwRef}
                 style={s.fieldInput}
@@ -336,7 +456,7 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Password strength bars */}
+            {/* Strength bars */}
             {password.length > 0 && (
               <View style={s.strengthRow}>
                 {[1, 2, 3, 4].map((level) => (
@@ -344,12 +464,7 @@ export default function SignupScreen() {
                     key={level}
                     style={[
                       s.strengthBar,
-                      {
-                        backgroundColor:
-                          pwStrength >= level
-                            ? strengthColors[pwStrength]
-                            : colors.border,
-                      },
+                      { backgroundColor: pwStrength >= level ? strengthColors[pwStrength] : colors.border },
                     ]}
                   />
                 ))}
@@ -357,16 +472,15 @@ export default function SignupScreen() {
             )}
 
             <TouchableOpacity
-              style={s.signUpBtn}
+              style={s.btn}
               onPress={handleSignup}
               disabled={loading}
               activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
-              ) : (
-                <Text style={s.signUpText}>Create Account</Text>
-              )}
+              {loading
+                ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
+                : <Text style={s.btnText}>Create Account</Text>
+              }
             </TouchableOpacity>
 
             <View style={s.loginRow}>
