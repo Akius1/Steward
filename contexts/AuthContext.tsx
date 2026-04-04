@@ -65,11 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single();
     if (hh) setHousehold(hh);
 
-    // Load members with their profiles
+    // Use RPC to load members + profiles in one shot (no FK between
+    // household_members and profiles, so join syntax doesn't work).
     const { data: members } = await (supabase as any)
-      .from('household_members')
-      .select('*, profile:profiles(*)')
-      .eq('household_id', membership.household_id);
+      .rpc('get_household_members', { hh_id: membership.household_id });
     if (members) setHouseholdMembers(members);
   }
 
