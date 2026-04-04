@@ -10,10 +10,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Animated,
+  Keyboard,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/utils/supabase';
@@ -69,9 +69,12 @@ function AddBucketModal({
 }) {
   const [name, setName] = useState('');
   const [pct, setPct] = useState('');
+  const pctRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
   const ms = makeModalStyles(colors, isDark);
 
   function handleAdd() {
+    Keyboard.dismiss();
     const trimmed = name.trim();
     if (!trimmed) { Alert.alert('Name required', 'Enter a name for your bucket.'); return; }
     if (existingNames.has(trimmed)) { Alert.alert('Duplicate', 'A bucket with that name already exists.'); return; }
@@ -83,13 +86,18 @@ function AddBucketModal({
     onClose();
   }
 
+  function handleClose() { Keyboard.dismiss(); onClose(); }
+
   const amount = totalIncome > 0 && !isNaN(parseFloat(pct)) ? Math.round(totalIncome * parseFloat(pct) / 100) : 0;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
-      <View style={ms.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
-          <View style={ms.sheet}>
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={handleClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={handleClose}>
+          <TouchableOpacity activeOpacity={1} style={[ms.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={ms.handle} />
             <Text style={ms.title}>Add Custom Bucket</Text>
             <Text style={ms.subtitle}>Create a personalised spending or saving category.</Text>
@@ -103,16 +111,22 @@ function AddBucketModal({
               onChangeText={setName}
               autoCapitalize="words"
               maxLength={40}
+              returnKeyType="next"
+              onSubmitEditing={() => pctRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <Text style={ms.label}>PERCENTAGE OF INCOME (%)</Text>
             <TextInput
+              ref={pctRef}
               style={ms.input}
               placeholder="e.g. 5"
               placeholderTextColor={colors.textMuted}
               value={pct}
               onChangeText={setPct}
               keyboardType="decimal-pad"
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
             />
 
             {amount > 0 && (
@@ -127,13 +141,42 @@ function AddBucketModal({
             <TouchableOpacity style={ms.addBtn} onPress={handleAdd} activeOpacity={0.85}>
               <Text style={ms.addBtnTxt}>Add Bucket</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={ms.cancelRow} onPress={onClose}>
+            <TouchableOpacity style={ms.cancelRow} onPress={handleClose}>
               <Text style={ms.cancelTxt}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+// ─── Keyboard Done Bar ────────────────────────────────────────────────────────
+// Floating "Done" bar shown above the keyboard so users can always dismiss it
+function KeyboardDoneBar({ visible, colors }: { visible: boolean; colors: any }) {
+  if (!visible) return null;
+  return (
+    <View style={{
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+    }}>
+      <TouchableOpacity
+        onPress={Keyboard.dismiss}
+        style={{
+          backgroundColor: colors.gold,
+          borderRadius: 8,
+          paddingHorizontal: 18,
+          paddingVertical: 8,
+        }}
+      >
+        <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: '#FFF' }}>Done</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -141,6 +184,7 @@ function AddBucketModal({
 export default function AllocationScreen() {
   const { colors, isDark } = useTheme();
   const { user, household, currency } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [totalIncome, setTotalIncome] = useState(0);
   const [buckets, setBuckets] = useState<BucketState[]>(
@@ -150,6 +194,20 @@ export default function AllocationScreen() {
   const [loading, setLoading] = useState(true);
   const [focusedBucket, setFocusedBucket] = useState<string | null>(null);
   const [showAddBucket, setShowAddBucket] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const scrollRef = useRef<ScrollView>(null);
+  // Store each bucket card's Y offset so we can scroll to it when focused
+  const cardOffsets = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setFocusedBucket(null);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -168,7 +226,6 @@ export default function AllocationScreen() {
     if (!user) return;
     setLoading(true);
 
-    // Get total income — household-aware
     let incomeQuery = (supabase as any).from('income_sources').select('amount');
     incomeQuery = household
       ? incomeQuery.eq('household_id', household.id)
@@ -177,7 +234,6 @@ export default function AllocationScreen() {
     const income = ((sources ?? []) as Array<{ amount: number }>).reduce((s, r) => s + r.amount, 0);
     setTotalIncome(income);
 
-    // Get existing allocations — household-aware
     let allocQuery = (supabase as any).from('allocations').select('*').eq('month', month).eq('year', year);
     allocQuery = household
       ? allocQuery.eq('household_id', household.id)
@@ -185,26 +241,19 @@ export default function AllocationScreen() {
     const { data: existing } = await allocQuery;
 
     if (existing && existing.length > 0) {
-      // Map default buckets to their saved amounts
       const defaultBuckets = BUCKET_DEFAULTS.map((b) => {
         const found = (existing as Array<any>).find((e) => e.bucket_name === b.name);
         return { name: b.name, icon: b.icon, color: b.color, amount: found ? found.amount : 0, isCustom: false };
       });
-
-      // Restore any custom buckets saved in the DB
       const customBuckets = (existing as Array<any>)
         .filter((e) => !DEFAULT_NAMES.has(e.bucket_name))
         .map((e, i) => ({
-          name: e.bucket_name,
-          icon: 'wallet-outline',
+          name: e.bucket_name, icon: 'wallet-outline',
           color: CUSTOM_BUCKET_COLORS[i % CUSTOM_BUCKET_COLORS.length],
-          amount: e.amount,
-          isCustom: true,
+          amount: e.amount, isCustom: true,
         }));
-
       setBuckets([...defaultBuckets, ...customBuckets]);
     } else if (income > 0) {
-      // Seed with default percentages
       setBuckets(
         BUCKET_DEFAULTS.map((b) => ({
           name: b.name, icon: b.icon, color: b.color,
@@ -213,7 +262,6 @@ export default function AllocationScreen() {
         }))
       );
     }
-
     setLoading(false);
   }, [user, household, month, year]);
 
@@ -224,32 +272,35 @@ export default function AllocationScreen() {
     setBuckets((prev) => prev.map((b) => (b.name === bucketName ? { ...b, amount: n } : b)));
   }
 
+  function handleFocus(bucketName: string) {
+    setFocusedBucket(bucketName);
+    // Delay to let the keyboard appear, then scroll card into view
+    setTimeout(() => {
+      const y = cardOffsets.current[bucketName];
+      if (y !== undefined && scrollRef.current) {
+        scrollRef.current.scrollTo({ y: Math.max(0, y - 120), animated: true });
+      }
+    }, 150);
+  }
+
   function addCustomBucket(name: string, pct: number) {
     const amount = totalIncome > 0 ? Math.round((totalIncome * pct) / 100) : 0;
     const colorIndex = buckets.filter((b) => b.isCustom).length;
     setBuckets((prev) => [
       ...prev,
-      {
-        name,
-        icon: 'wallet-outline',
-        color: CUSTOM_BUCKET_COLORS[colorIndex % CUSTOM_BUCKET_COLORS.length],
-        amount,
-        isCustom: true,
-      },
+      { name, icon: 'wallet-outline', color: CUSTOM_BUCKET_COLORS[colorIndex % CUSTOM_BUCKET_COLORS.length], amount, isCustom: true },
     ]);
   }
 
   function removeCustomBucket(name: string) {
     Alert.alert('Remove bucket', `Remove "${name}" from your allocation?`, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive',
-        onPress: () => setBuckets((prev) => prev.filter((b) => b.name !== name)),
-      },
+      { text: 'Remove', style: 'destructive', onPress: () => setBuckets((prev) => prev.filter((b) => b.name !== name)) },
     ]);
   }
 
   async function handleSave() {
+    if (keyboardVisible) { Keyboard.dismiss(); return; }
     if (!user) return;
     if (totalIncome === 0) {
       Alert.alert('No income', 'Add at least one income source on the Income tab first.');
@@ -264,30 +315,18 @@ export default function AllocationScreen() {
       );
       return;
     }
-
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     if (!currentUser) { setSaving(false); Alert.alert('Session expired', 'Please sign in again.'); return; }
-
     const rows = buckets.map((b) => ({
-      user_id: currentUser.id,
-      household_id: household?.id ?? null,
-      month, year,
-      bucket_name: b.name,
-      amount: b.amount,
+      user_id: currentUser.id, household_id: household?.id ?? null,
+      month, year, bucket_name: b.name, amount: b.amount,
       pct: totalIncome > 0 ? Number(((b.amount / totalIncome) * 100).toFixed(2)) : 0,
     }));
-
-    const { error } = await (supabase as any).from('allocations').upsert(rows, {
-      onConflict: 'user_id,month,year,bucket_name',
-    });
+    const { error } = await (supabase as any).from('allocations').upsert(rows, { onConflict: 'user_id,month,year,bucket_name' });
     setSaving(false);
-
-    if (error) {
-      Alert.alert('Save failed', error.message);
-    } else {
-      Alert.alert('Saved ✓', 'Your allocation for ' + monthLabel + ' has been saved.');
-    }
+    if (error) Alert.alert('Save failed', error.message);
+    else Alert.alert('Saved ✓', 'Your allocation for ' + monthLabel + ' has been saved.');
   }
 
   function autoBalance() {
@@ -338,34 +377,40 @@ export default function AllocationScreen() {
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      {/* ── Fixed Header ─────────────────────────────────── */}
+      <View style={s.header}>
+        <View>
+          <Text style={s.headerTitle}>Allocation</Text>
+          <Text style={s.headerSub}>{monthLabel}</Text>
+        </View>
+        <TouchableOpacity
+          style={[s.saveBtn, keyboardVisible ? s.saveBtnDone : (!isBalanced || saving) ? s.saveBtnDisabled : null]}
+          onPress={handleSave}
+          disabled={saving}
+          activeOpacity={0.85}
+        >
+          {saving
+            ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
+            : <Text style={s.saveBtnText}>{keyboardVisible ? 'Done' : 'Save'}</Text>
+          }
+        </TouchableOpacity>
+      </View>
+
+      {/* Keyboard Done bar (shows above keyboard on both platforms) */}
+      <KeyboardDoneBar visible={keyboardVisible} colors={colors} />
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 60 : 0}
       >
-        {/* ── Fixed Header ─────────────────────────────────── */}
-        <View style={s.header}>
-          <View>
-            <Text style={s.headerTitle}>Allocation</Text>
-            <Text style={s.headerSub}>{monthLabel}</Text>
-          </View>
-          <TouchableOpacity
-            style={[s.saveBtn, (!isBalanced || saving) && s.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            {saving
-              ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
-              : <Text style={s.saveBtnText}>Save</Text>
-            }
-          </TouchableOpacity>
-        </View>
-
         <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* ── Summary Card ─────────────────────────────────── */}
           <View style={s.summaryCard}>
@@ -383,61 +428,38 @@ export default function AllocationScreen() {
                   size={14}
                   color={isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger}
                 />
-                <Text style={[
-                  s.remainingText,
-                  { color: isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger },
-                ]}>
+                <Text style={[s.remainingText, { color: isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger }]}>
                   {isBalanced ? 'Balanced ✓' : remaining > 0 ? `${fmt(remaining, currency)} left` : `${fmt(Math.abs(remaining), currency)} over`}
                 </Text>
               </View>
             </View>
 
-            {/* Stacked allocation bar */}
             <View style={s.stackedBar}>
               {buckets.map((b, i) => (
-                <View
-                  key={b.name}
-                  style={[
-                    s.stackedSeg,
-                    { flex: totalIncome > 0 ? b.amount / totalIncome * 100 : 1, backgroundColor: b.color },
-                    i > 0 && { marginLeft: 2 },
-                  ]}
-                />
+                <View key={b.name} style={[s.stackedSeg, { flex: totalIncome > 0 ? b.amount / totalIncome * 100 : 1, backgroundColor: b.color }, i > 0 && { marginLeft: 2 }]} />
               ))}
             </View>
 
-            {/* Legend dots */}
             <View style={s.legendRow}>
               {buckets.map((b) => (
                 <View key={b.name} style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: b.color }]} />
-                  <Text style={s.legendLabel}>
-                    {totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%
-                  </Text>
+                  <Text style={s.legendLabel}>{totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%</Text>
                 </View>
               ))}
             </View>
 
-            {/* Overall progress */}
             <View style={s.progressRow}>
               <View style={s.progressTrack}>
-                <View style={[
-                  s.progressFill,
-                  { width: `${Math.min(allocPct, 100)}%` as any, backgroundColor: isBalanced ? colors.emerald : colors.gold },
-                ]} />
+                <View style={[s.progressFill, { width: `${Math.min(allocPct, 100)}%` as any, backgroundColor: isBalanced ? colors.emerald : colors.gold }]} />
               </View>
-              <Text style={[s.progressLabel, { color: isBalanced ? colors.emerald : colors.gold }]}>
-                {allocPct}%
-              </Text>
+              <Text style={[s.progressLabel, { color: isBalanced ? colors.emerald : colors.gold }]}>{allocPct}%</Text>
             </View>
 
-            {/* Auto-balance shortcut */}
             {!isBalanced && Math.abs(remaining) < totalIncome * 0.2 && (
               <TouchableOpacity style={s.autoBalanceBtn} onPress={autoBalance}>
                 <Ionicons name="git-merge-outline" size={14} color={colors.gold} />
-                <Text style={s.autoBalanceText}>
-                  Auto-balance ({remaining > 0 ? '+' : '-'}{fmt(Math.abs(remaining), currency)} → Savings)
-                </Text>
+                <Text style={s.autoBalanceText}>Auto-balance ({remaining > 0 ? '+' : '-'}{fmt(Math.abs(remaining), currency)} → Savings)</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -447,7 +469,7 @@ export default function AllocationScreen() {
             <View style={s.sectionHeader}>
               <View>
                 <Text style={s.sectionTitle}>Budget Buckets</Text>
-                <Text style={s.sectionSubtitle}>Tap any amount to edit · Must total {fmt(totalIncome, currency)}</Text>
+                <Text style={s.sectionSubtitle}>Tap an amount to edit · Must total {fmt(totalIncome, currency)}</Text>
               </View>
               <TouchableOpacity style={s.addBucketBtn} onPress={() => setShowAddBucket(true)} activeOpacity={0.8}>
                 <Ionicons name="add" size={16} color={colors.gold} />
@@ -462,14 +484,16 @@ export default function AllocationScreen() {
 
               const statusIcon = threshold?.status === 'success' ? 'checkmark-circle-outline'
                 : threshold?.status === 'warning' ? 'warning-outline'
-                : threshold?.status === 'danger' ? 'close-circle-outline'
-                : undefined;
+                : threshold?.status === 'danger' ? 'close-circle-outline' : undefined;
               const statusColor = threshold?.status === 'success' ? colors.success
-                : threshold?.status === 'warning' ? colors.warning
-                : colors.danger;
+                : threshold?.status === 'warning' ? colors.warning : colors.danger;
 
               return (
-                <View key={bucket.name} style={[s.bucketCard, i > 0 && s.mt10]}>
+                <View
+                  key={bucket.name}
+                  style={[s.bucketCard, i > 0 && s.mt10]}
+                  onLayout={(e) => { cardOffsets.current[bucket.name] = e.nativeEvent.layout.y; }}
+                >
                   <View style={s.bucketTop}>
                     <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22' }]}>
                       <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
@@ -478,38 +502,41 @@ export default function AllocationScreen() {
                       <Text style={s.bucketName}>{bucket.name}</Text>
                       <Text style={[s.bucketPct, { color: bucket.color }]}>{pct}% of income</Text>
                     </View>
-                    <View style={[s.amountWrap, isFocused && { borderColor: bucket.color }]}>
-                      <Text style={s.currencySign}>{CURRENCIES[currency].symbol}</Text>
+                    <View style={[s.amountWrap, isFocused && { borderColor: bucket.color, borderWidth: 2 }]}>
+                      <Text style={[s.currencySign, isFocused && { color: bucket.color }]}>
+                        {CURRENCIES[currency].symbol}
+                      </Text>
                       <TextInput
-                        style={[s.amountInput, { color: colors.textPrimary }]}
+                        style={[s.amountInput, { color: isFocused ? colors.textPrimary : colors.textPrimary }]}
                         value={bucket.amount > 0 ? formatInput(bucket.amount.toString()) : ''}
                         placeholder="0"
                         placeholderTextColor={colors.textMuted}
                         onChangeText={(v) => updateAmount(bucket.name, v)}
                         keyboardType="numeric"
-                        onFocus={() => setFocusedBucket(bucket.name)}
+                        returnKeyType="done"
+                        onSubmitEditing={Keyboard.dismiss}
+                        onFocus={() => handleFocus(bucket.name)}
                         onBlur={() => setFocusedBucket(null)}
                         selectTextOnFocus
+                        cursorColor={bucket.color}
+                        selectionColor={bucket.color + '55'}
                       />
                     </View>
-                    {/* Remove button for custom buckets only */}
                     {bucket.isCustom && (
                       <TouchableOpacity
                         style={s.removeBucketBtn}
                         onPress={() => removeCustomBucket(bucket.name)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} />
+                        <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
                       </TouchableOpacity>
                     )}
                   </View>
 
-                  {/* Progress bar */}
                   <View style={s.bucketBarTrack}>
                     <View style={[s.bucketBarFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: bucket.color }]} />
                   </View>
 
-                  {/* Threshold badge */}
                   {threshold && (
                     <View style={[s.thresholdRow, { backgroundColor: (colors as Record<string, string>)[threshold.status + 'Bg'] }]}>
                       {statusIcon && <Ionicons name={statusIcon} size={12} color={statusColor} />}
@@ -520,7 +547,6 @@ export default function AllocationScreen() {
               );
             })}
 
-            {/* Add Bucket CTA */}
             <TouchableOpacity style={s.addBucketCard} onPress={() => setShowAddBucket(true)} activeOpacity={0.7}>
               <Ionicons name="add-circle-outline" size={20} color={colors.gold} />
               <Text style={s.addBucketCardTxt}>Add a custom bucket</Text>
@@ -545,27 +571,21 @@ export default function AllocationScreen() {
 // ─── Modal Styles ─────────────────────────────────────────────────────────────
 function makeModalStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1, justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0,0,0,0.55)',
-    },
+    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
     sheet: {
       backgroundColor: colors.card,
       borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+      padding: 24,
     },
-    handle: {
-      width: 36, height: 4, borderRadius: 2,
-      backgroundColor: colors.border, alignSelf: 'center', marginBottom: 20,
-    },
+    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 20 },
     title: { fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 4 },
     subtitle: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 20 },
     label: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 12 },
     input: {
       backgroundColor: colors.surface, borderRadius: 12,
       borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 14, paddingVertical: 12,
-      fontFamily: FONTS.regular, fontSize: 15, color: colors.textPrimary,
+      paddingHorizontal: 14, paddingVertical: 13,
+      fontFamily: FONTS.regular, fontSize: 16, color: colors.textPrimary,
     },
     previewRow: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -573,10 +593,7 @@ function makeModalStyles(colors: any, isDark: boolean) {
       paddingHorizontal: 10, paddingVertical: 8, marginTop: 10,
     },
     previewText: { fontFamily: FONTS.medium, fontSize: 13, color: colors.gold },
-    addBtn: {
-      backgroundColor: colors.gold, borderRadius: 14,
-      paddingVertical: 15, alignItems: 'center', marginTop: 24,
-    },
+    addBtn: { backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 24 },
     addBtnTxt: { fontFamily: FONTS.semibold, fontSize: 15, color: isDark ? colors.bg : '#FFF' },
     cancelRow: { alignItems: 'center', paddingVertical: 14 },
     cancelTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.textSecondary },
@@ -601,6 +618,7 @@ function makeStyles(colors: any, isDark: boolean) {
       backgroundColor: colors.gold, borderRadius: 10,
       paddingHorizontal: 20, paddingVertical: 9, minWidth: 70, alignItems: 'center',
     },
+    saveBtnDone: { backgroundColor: colors.emerald },
     saveBtnDisabled: { opacity: 0.5 },
     saveBtnText: { fontFamily: FONTS.semibold, fontSize: 14, color: isDark ? colors.bg : '#FFF' },
 
@@ -645,8 +663,7 @@ function makeStyles(colors: any, isDark: boolean) {
 
     addBucketBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: colors.goldBg, borderRadius: 8,
-      paddingHorizontal: 10, paddingVertical: 6,
+      backgroundColor: colors.goldBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
     },
     addBucketTxt: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.gold },
 
@@ -666,10 +683,17 @@ function makeStyles(colors: any, isDark: boolean) {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: colors.surface, borderRadius: 10,
       borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 10, paddingVertical: 8, minWidth: 110,
+      paddingHorizontal: 10, paddingVertical: 10, minWidth: 110,
     },
-    currencySign: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textMuted, marginRight: 3 },
-    amountInput: { fontFamily: FONTS.semibold, fontSize: 15, flex: 1, minWidth: 70, textAlign: 'right' },
+    currencySign: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textMuted, marginRight: 4 },
+    amountInput: {
+      fontFamily: FONTS.semibold, fontSize: 16,
+      flex: 1, minWidth: 70, textAlign: 'right',
+      color: colors.textPrimary,
+      // Prevent invisible text on Android
+      includeFontPadding: false,
+      textAlignVertical: 'center',
+    },
 
     removeBucketBtn: { marginLeft: 8 },
 
@@ -683,8 +707,7 @@ function makeStyles(colors: any, isDark: boolean) {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       marginTop: 10, borderRadius: 14,
       borderWidth: 1.5, borderColor: colors.gold + '44',
-      borderStyle: 'dashed', padding: 16,
-      justifyContent: 'center',
+      borderStyle: 'dashed', padding: 16, justifyContent: 'center',
     },
     addBucketCardTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.gold },
   });
