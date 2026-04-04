@@ -145,8 +145,15 @@ export default function AllocationScreen() {
     }
 
     setSaving(true);
+    // Get live user ID from Supabase session to match auth.uid() in RLS check
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      setSaving(false);
+      Alert.alert('Session expired', 'Please sign in again.');
+      return;
+    }
     const rows = buckets.map((b) => ({
-      user_id: user.id,
+      user_id: currentUser.id,
       month,
       year,
       bucket_name: b.name,

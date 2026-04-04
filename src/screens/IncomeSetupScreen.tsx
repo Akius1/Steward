@@ -82,9 +82,17 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, userId }: A
       return;
     }
     setSaving(true);
+    // Get the live user ID from the active session — never rely on the prop
+    // which may be stale or empty when RLS checks auth.uid() server-side.
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      setSaving(false);
+      Alert.alert('Session expired', 'Please sign in again.');
+      return;
+    }
     const { data, error } = await (supabase as any)
       .from('income_sources')
-      .insert({ user_id: userId, name: name.trim(), type, amount, subtitle: subtitle.trim() || null })
+      .insert({ user_id: currentUser.id, name: name.trim(), type, amount, subtitle: subtitle.trim() || null })
       .select()
       .single();
     setSaving(false);
