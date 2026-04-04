@@ -29,11 +29,10 @@ create policy "hm: see own household" on public.household_members
 -- and avoids having to relax the profiles RLS policy globally.
 create or replace function public.get_household_members(hh_id uuid)
 returns table(
-  user_id    uuid,
-  role       text,
-  joined_at  timestamptz,
-  name       text,
-  avatar_url text
+  user_id   uuid,
+  role      text,
+  joined_at timestamptz,
+  name      text
 )
 language sql
 security definer
@@ -44,8 +43,7 @@ as $$
     hm.user_id,
     hm.role,
     hm.joined_at,
-    p.name,
-    p.avatar_url
+    p.name
   from public.household_members hm
   left join public.profiles p on p.id = hm.user_id
   where hm.household_id = hh_id
