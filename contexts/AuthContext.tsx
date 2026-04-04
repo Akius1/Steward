@@ -19,30 +19,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(userId: string) {
-    const { data } = await supabase
+  async function loadProfile(userId: string, fallbackName?: string) {
+    const { data } = await (supabase as any)
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+    } else if (fallbackName) {
+      // Profile row missing (user signed up before schema was applied) — create it now
+      const { data: created } = await (supabase as any)
+        .from('profiles')
+        .upsert({ id: userId, name: fallbackName }, { onConflict: 'id' })
+        .select()
+        .single();
+      if (created) setProfile(created);
+    }
   }
 
   async function refreshProfile() {
-    if (session?.user) await loadProfile(session.user.id);
+    if (session?.user) {
+      const u = session.user;
+      await loadProfile(u.id, u.user_metadata?.name ?? u.email?.split('@')[0]);
+    }
   }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session?.user) loadProfile(data.session.user.id);
+      if (data.session?.user) {
+        const u = data.session.user;
+        loadProfile(u.id, u.user_metadata?.name ?? u.email?.split('@')[0]);
+      }
       setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_ev, sess) => {
       setSession(sess);
       if (sess?.user) {
-        loadProfile(sess.user.id);
+        const u = sess.user;
+        loadProfile(u.id, u.user_metadata?.name ?? u.email?.split('@')[0]);
       } else {
         setProfile(null);
       }
