@@ -100,21 +100,34 @@ export const FONTS = {
 
 // ─── Allocation bucket palette (consistent across themes) ────────────────────
 export const BUCKET_COLORS = [
-  '#C9943F', // Gold   — Rent/Housing
-  '#10B97A', // Emerald — Food
-  '#60A5FA', // Blue   — Savings
-  '#A78BFA', // Purple — Investments
-  '#F472B6', // Pink   — Entertainment
-  '#F59E0B', // Amber  — Emergency
-  '#34D399', // Mint   — Giving
+  '#C9943F', // Gold      — Rent/Housing
+  '#10B97A', // Emerald   — Food
+  '#60A5FA', // Blue      — Savings
+  '#A78BFA', // Purple    — Investments
+  '#F472B6', // Pink      — Entertainment
+  '#F59E0B', // Amber     — Emergency
+  '#34D399', // Mint      — Giving
+  '#818CF8', // Indigo    — Covenant Practice
+] as const;
+
+// Extra colours cycled for user-created custom buckets
+export const CUSTOM_BUCKET_COLORS = [
+  '#06B6D4', // Cyan
+  '#FB923C', // Orange
+  '#84CC16', // Lime
+  '#E879F9', // Fuchsia
+  '#2DD4BF', // Teal
+  '#F97316', // Deep orange
+  '#38BDF8', // Sky
 ] as const;
 
 export const BUCKET_DEFAULTS = [
-  { name: 'Rent & Housing',   icon: 'home-outline',               color: BUCKET_COLORS[0], defaultPct: 29 },
-  { name: 'Food & Groceries', icon: 'restaurant-outline',         color: BUCKET_COLORS[1], defaultPct: 10 },
-  { name: 'Savings',          icon: 'business-outline',           color: BUCKET_COLORS[2], defaultPct: 22 },
-  { name: 'Investments',      icon: 'trending-up-outline',        color: BUCKET_COLORS[3], defaultPct: 10 },
-  { name: 'Entertainment',    icon: 'musical-notes-outline',      color: BUCKET_COLORS[4], defaultPct: 5  },
-  { name: 'Emergency Fund',   icon: 'shield-checkmark-outline',   color: BUCKET_COLORS[5], defaultPct: 15 },
-  { name: 'Giving',           icon: 'heart-outline',              color: BUCKET_COLORS[6], defaultPct: 9  },
+  { name: 'Rent & Housing',     icon: 'home-outline',               color: BUCKET_COLORS[0], defaultPct: 25 },
+  { name: 'Food & Groceries',   icon: 'restaurant-outline',         color: BUCKET_COLORS[1], defaultPct: 10 },
+  { name: 'Savings',            icon: 'business-outline',           color: BUCKET_COLORS[2], defaultPct: 20 },
+  { name: 'Investments',        icon: 'trending-up-outline',        color: BUCKET_COLORS[3], defaultPct: 10 },
+  { name: 'Entertainment',      icon: 'musical-notes-outline',      color: BUCKET_COLORS[4], defaultPct: 5  },
+  { name: 'Emergency Fund',     icon: 'shield-checkmark-outline',   color: BUCKET_COLORS[5], defaultPct: 15 },
+  { name: 'Giving',             icon: 'heart-outline',              color: BUCKET_COLORS[6], defaultPct: 5  },
+  { name: 'Covenant Practice',  icon: 'infinite-outline',           color: BUCKET_COLORS[7], defaultPct: 10 },
 ] as const;
