@@ -327,11 +327,11 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
                     <View key={m.user_id} style={ms.memberRow}>
                       <View style={ms.memberAvatar}>
                         <Text style={ms.memberAvatarTxt}>
-                          {(m.profile?.name ?? '?').charAt(0).toUpperCase()}
+                          {(m.name ?? '?').charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={ms.memberName}>{m.profile?.name ?? 'Member'}</Text>
+                        <Text style={ms.memberName}>{m.name ?? 'Member'}</Text>
                         <Text style={ms.memberRole}>{m.role}</Text>
                       </View>
                       {m.user_id === household.owner_id && (
