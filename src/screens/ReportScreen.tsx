@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -104,30 +103,12 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       </View>
       <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
 
-      {/* SVG Circular Gauge Ring */}
-      <View style={{ width: 172, height: 172, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-        <Svg width={172} height={172} style={{ position: 'absolute' }}>
-          {/* Track circle */}
-          <Circle
-            cx={86} cy={86} r={62}
-            fill="none"
-            stroke={gradeColor + '28'}
-            strokeWidth={10}
-          />
-          {/* Score arc */}
-          <Circle
-            cx={86} cy={86} r={62}
-            fill="none"
-            stroke={gradeColor}
-            strokeWidth={10}
-            strokeLinecap="round"
-            strokeDasharray={`${(score / 100) * 2 * Math.PI * 62} ${2 * Math.PI * 62}`}
-            transform={`rotate(-90, 86, 86)`}
-          />
-        </Svg>
-        {/* Center content */}
-        <View style={{ alignItems: 'center', justifyContent: 'center', width: 120, height: 120, borderRadius: 60, backgroundColor: gradeColor + '18' }}>
-          <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+      {/* Grade Ring */}
+      <View style={[gr.outerRing, { borderColor: gradeColor + '28' }]}>
+        <View style={[gr.ring, { borderColor: gradeColor }]}>
+          <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
+            <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+          </View>
         </View>
       </View>
 
@@ -162,6 +143,13 @@ const gr = StyleSheet.create({
   divLine: { flex: 1, height: 1 },
   waecLabel: { fontFamily: FONTS.semibold, fontSize: 11, letterSpacing: 3 },
   subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
+  outerRing: {
+    width: 172, height: 172, borderRadius: 86,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  ring: { width: 160, height: 160, borderRadius: 80, borderWidth: 8, alignItems: 'center', justifyContent: 'center' },
+  ringInner: { width: 136, height: 136, borderRadius: 68, alignItems: 'center', justifyContent: 'center' },
   gradeLetter: { fontFamily: FONTS.display, fontSize: 62, lineHeight: 68, letterSpacing: -2 },
   scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
   scoreNum: { fontSize: 26 },
