@@ -26,7 +26,18 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(gh pr:*)",
-      "Bash(where gh:*)"
+      "Bash(where gh:*)",
+      "Bash(npx expo:*)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(p.dependencies\\), null, 2\\)\\)\")",
+      "Bash(node -e \"console.log\\(require\\(''./node_modules/@gorhom/bottom-sheet/package.json''\\).version\\)\")",
+      "Bash(sed -i 's/const amountRef  = useRef<TextInput>\\(null\\);/const amountRef  = useRef<any>\\(null\\);/' src/screens/IncomeSetupScreen.tsx)",
+      "Bash(sed -i 's/const subtitleRef = useRef<TextInput>\\(null\\);/const subtitleRef = useRef<any>\\(null\\);/' src/screens/IncomeSetupScreen.tsx)",
+      "Bash(cd /tmp)",
+      "Bash(command -v python3 python py)",
+      "Read(//usr/**)",
+      "Read(//usr/local/**)",
+      "Bash(py -c \":*)",
+      "Bash(py -m pip install pdfplumber pypdf)"
     ]
   }
 }
