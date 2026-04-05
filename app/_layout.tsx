@@ -3,7 +3,18 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { TextInput } from 'react-native';
 import 'react-native-reanimated';
+
+// ─── Polyfill ─────────────────────────────────────────────────────────────────
+// @gorhom/bottom-sheet calls TextInput.State.currentlyFocusedInput() which
+// was removed from react-native-web. Patch it before any sheet mounts.
+const _rnts = (TextInput as any).State;
+if (_rnts && typeof _rnts.currentlyFocusedInput !== 'function') {
+  _rnts.currentlyFocusedInput = () => _rnts.currentlyFocusedField?.() ?? null;
+}
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import {
   Fraunces_900Black,
@@ -49,11 +60,15 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootLayoutNav />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
+          <BottomSheetModalProvider>
+            <RootLayoutNav />
+          </BottomSheetModalProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -81,6 +96,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="transactions" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
     </Stack>
   );
