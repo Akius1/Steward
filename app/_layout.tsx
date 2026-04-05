@@ -3,7 +3,16 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { TextInput } from 'react-native';
 import 'react-native-reanimated';
+
+// ─── Polyfill ─────────────────────────────────────────────────────────────────
+// @gorhom/bottom-sheet calls TextInput.State.currentlyFocusedInput() which
+// was removed from react-native-web. Patch it before any sheet mounts.
+const _rnts = (TextInput as any).State;
+if (_rnts && typeof _rnts.currentlyFocusedInput !== 'function') {
+  _rnts.currentlyFocusedInput = () => _rnts.currentlyFocusedField?.() ?? null;
+}
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
