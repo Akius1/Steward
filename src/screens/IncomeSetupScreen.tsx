@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import {
   BottomSheetModal,
   BottomSheetScrollView,
@@ -544,6 +545,7 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
 export default function IncomeSetupScreen() {
   const { colors, isDark, toggleColorMode } = useTheme();
   const { user, profile, household, householdMembers, currency, signOut, setCurrency, refreshHousehold } = useAuth();
+  const router = useRouter();
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -664,6 +666,10 @@ export default function IncomeSetupScreen() {
             <TouchableOpacity style={s.currencyChip} onPress={() => setShowCurrency(true)} activeOpacity={0.75}>
               <Text style={s.currencyChipFlag}>{CURRENCIES[currency].flag}</Text>
               <Text style={s.currencyChipCode}>{currency}</Text>
+            </TouchableOpacity>
+            {/* Transactions */}
+            <TouchableOpacity style={s.themeToggle} onPress={() => router.push('/transactions' as any)} activeOpacity={0.75}>
+              <Ionicons name="receipt-outline" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             {/* Theme toggle */}
             <TouchableOpacity style={s.themeToggle} onPress={toggleColorMode} activeOpacity={0.75}>

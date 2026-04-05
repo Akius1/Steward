@@ -87,6 +87,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="transactions" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
     </Stack>
   );

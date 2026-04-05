@@ -98,6 +98,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="plan"
+        options={{
+          title: 'Plan',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon
+              name={focused ? 'compass' : 'compass-outline'}
+              color={color}
+              focused={focused}
+              goldBg={colors.goldBg}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="report"
         options={{
           title: 'Report',

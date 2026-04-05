@@ -17,7 +17,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
 import { fmt } from '@/utils/currency';
-import type { IncomeSource, Allocation } from '@/types/database';
+import type { IncomeSource, Allocation, Milestone } from '@/types/database';
+
+const MILESTONE_COLORS = ['#60A5FA','#10B97A','#C9943F','#A78BFA','#F472B6','#F59E0B','#34D399','#818CF8'];
 
 // ─── Grade Engine ─────────────────────────────────────────────────────────────
 function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
@@ -184,6 +186,7 @@ export default function ReportScreen() {
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GradeData | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -200,13 +203,16 @@ export default function ReportScreen() {
     const allQ = household
       ? db.from('allocations').select('*').eq('household_id', household.id).eq('month', month).eq('year', year)
       : db.from('allocations').select('*').eq('user_id', user.id).is('household_id', null).eq('month', month).eq('year', year);
-    const [{ data: sources }, { data: allocs }] = await Promise.all([srcQ, allQ]);
+    const mlQ = db.from('milestones').select('*').eq('user_id', user.id).order('created_at', { ascending: true }).limit(4);
+
+    const [{ data: sources }, { data: allocs }, { data: mls }] = await Promise.all([srcQ, allQ, mlQ]);
 
     if (sources && allocs) {
       setData(calcGrade(sources, allocs));
     }
+    if (mls) setMilestones(mls);
     setLoading(false);
-  }, [user, month, year]);
+  }, [user, household, month, year]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -343,6 +349,62 @@ export default function ReportScreen() {
             </View>
           </View>
 
+          {/* Milestone Countdown Cards */}
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Ionicons name="compass-outline" size={16} color={colors.gold} style={{ marginRight: 6 }} />
+              <Text style={s.sectionTitle}>Goal Tracker</Text>
+            </View>
+            {milestones.length === 0 ? (
+              <Text style={[s.emptyGoals, { color: colors.textMuted }]}>
+                No goals set yet — visit the Plan tab to add your first milestone.
+              </Text>
+            ) : (
+              <View style={s.alertsCard}>
+                {milestones.map((m, i) => {
+                  const color = MILESTONE_COLORS[i % MILESTONE_COLORS.length];
+                  const prog = m.target_amount > 0 ? Math.min(m.saved_amount / m.target_amount, 1) : 0;
+                  const remaining = Math.max(0, m.target_amount - m.saved_amount);
+                  const monthsLeft = m.monthly_saving > 0 ? Math.ceil(remaining / m.monthly_saving) : null;
+                  const required = m.deadline_months && m.deadline_months > 0
+                    ? remaining / m.deadline_months : null;
+                  const status =
+                    m.saved_amount >= m.target_amount ? { label: 'Completed', color: colors.emerald, bg: colors.emeraldBg } :
+                    !required ? { label: 'Active', color: colors.gold, bg: colors.goldBg } :
+                    m.monthly_saving >= required ? { label: 'On Track', color: colors.emerald, bg: colors.emeraldBg } :
+                    m.monthly_saving >= required * 0.8 ? { label: 'At Risk', color: colors.warning, bg: colors.warningBg } :
+                    { label: 'Behind', color: colors.danger, bg: colors.dangerBg };
+
+                  return (
+                    <View key={m.id}>
+                      {i > 0 && <View style={s.divider} />}
+                      <View style={s.milestoneRow}>
+                        <View style={[s.milestoneIconWrap, { backgroundColor: color + '22' }]}>
+                          <Ionicons name={(m.icon || 'flag-outline') as any} size={18} color={color} />
+                        </View>
+                        <View style={s.milestoneInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={[s.milestoneName, { color: colors.textPrimary }]} numberOfLines={1}>{m.name}</Text>
+                            <View style={[s.milestoneBadge, { backgroundColor: status.bg }]}>
+                              <Text style={[s.milestoneBadgeText, { color: status.color }]}>{status.label}</Text>
+                            </View>
+                          </View>
+                          <View style={[s.milestoneBarTrack, { backgroundColor: colors.border }]}>
+                            <View style={[s.milestoneBarFill, { width: `${Math.round(prog * 100)}%` as any, backgroundColor: color }]} />
+                          </View>
+                          <Text style={[s.milestoneSub, { color: colors.textMuted }]}>
+                            {fmt(m.saved_amount, currency)} saved of {fmt(m.target_amount, currency)}
+                            {monthsLeft ? `  ·  ~${monthsLeft}mo left` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
           {/* AI Advisory */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
@@ -419,7 +481,7 @@ function makeStyles(colors: any, isDark: boolean) {
 
     section: { paddingHorizontal: 20, marginTop: 20, marginBottom: 4 },
     sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary, marginBottom: 10 },
-    sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
     dimensionsCard: {
@@ -447,6 +509,17 @@ function makeStyles(colors: any, isDark: boolean) {
     statusPill: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3 },
     statusText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.5 },
     alertValue: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary },
+
+    emptyGoals: { fontFamily: FONTS.regular, fontSize: 13, textAlign: 'center', paddingVertical: 16, fontStyle: 'italic' },
+    milestoneRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 14, paddingVertical: 14, gap: 10 },
+    milestoneIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    milestoneInfo: { flex: 1, minWidth: 0 },
+    milestoneName: { fontFamily: FONTS.semibold, fontSize: 13, flex: 1, marginRight: 8 },
+    milestoneBadge: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 },
+    milestoneBadgeText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.4 },
+    milestoneBarTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 5 },
+    milestoneBarFill: { height: 4, borderRadius: 2 },
+    milestoneSub: { fontFamily: FONTS.regular, fontSize: 11 },
 
     advisoryCard: {
       borderRadius: 16, borderWidth: 1, padding: 20, overflow: 'hidden',
