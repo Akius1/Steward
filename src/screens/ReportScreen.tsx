@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -102,12 +104,30 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       </View>
       <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
 
-      {/* Outer depth ring */}
-      <View style={[gr.outerRing, { borderColor: gradeColor + '25' }]}>
-        <View style={[gr.ring, { borderColor: gradeColor }]}>
-          <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
-            <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
-          </View>
+      {/* SVG Circular Gauge Ring */}
+      <View style={{ width: 172, height: 172, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        <Svg width={172} height={172} style={{ position: 'absolute' }}>
+          {/* Track circle */}
+          <Circle
+            cx={86} cy={86} r={62}
+            fill="none"
+            stroke={gradeColor + '28'}
+            strokeWidth={10}
+          />
+          {/* Score arc */}
+          <Circle
+            cx={86} cy={86} r={62}
+            fill="none"
+            stroke={gradeColor}
+            strokeWidth={10}
+            strokeLinecap="round"
+            strokeDasharray={`${(score / 100) * 2 * Math.PI * 62} ${2 * Math.PI * 62}`}
+            transform={`rotate(-90, 86, 86)`}
+          />
+        </Svg>
+        {/* Center content */}
+        <View style={{ alignItems: 'center', justifyContent: 'center', width: 120, height: 120, borderRadius: 60, backgroundColor: gradeColor + '18' }}>
+          <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
         </View>
       </View>
 
@@ -142,14 +162,6 @@ const gr = StyleSheet.create({
   divLine: { flex: 1, height: 1 },
   waecLabel: { fontFamily: FONTS.semibold, fontSize: 11, letterSpacing: 3 },
   subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
-  outerRing: {
-    width: 172, height: 172, borderRadius: 86,
-    borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20,
-  },
-  ring: { width: 160, height: 160, borderRadius: 80, borderWidth: 5, alignItems: 'center', justifyContent: 'center' },
-  ringInner: { width: 140, height: 140, borderRadius: 70, alignItems: 'center', justifyContent: 'center' },
   gradeLetter: { fontFamily: FONTS.display, fontSize: 62, lineHeight: 68, letterSpacing: -2 },
   scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
   scoreNum: { fontSize: 26 },
@@ -325,7 +337,7 @@ export default function ReportScreen() {
                 return (
                   <View key={alert.label}>
                     {i > 0 && <View style={s.divider} />}
-                    <View style={s.alertRow}>
+                    <View style={[s.alertRow, { borderLeftColor: fg }]}>
                       <View style={[s.alertIconWrap, { backgroundColor: c[bgKey] }]}>
                         <Ionicons name={alert.icon} size={16} color={fg} />
                       </View>
@@ -408,18 +420,23 @@ export default function ReportScreen() {
           {/* AI Advisory */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
-            <View style={[s.advisoryCard, { backgroundColor: colors.card, borderColor: colors.goldDim }]}>
-              <View style={[s.advisoryStripe, { backgroundColor: colors.gold }]} />
+            <LinearGradient
+              colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[s.advisoryCard, { borderColor: colors.goldDim }]}
+            >
+              <View style={[s.advisoryStripe, { backgroundColor: 'rgba(235,192,118,0.6)' }]} />
               <View style={s.advisoryTop}>
-                <View style={[s.advisoryIconWrap, { backgroundColor: colors.goldBg }]}>
-                  <Ionicons name="sparkles-outline" size={18} color={colors.gold} />
+                <View style={[s.advisoryIconWrap, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                  <Ionicons name="sparkles-outline" size={18} color="#ffdeaa" />
                 </View>
-                <Text style={[s.advisoryTitle, { color: colors.textPrimary }]}>Steward Advisory</Text>
-                <Text style={[s.advisoryMeta, { color: colors.textMuted }]}>
+                <Text style={[s.advisoryTitle, { color: 'rgba(255,255,255,0.92)' }]}>Steward Advisory</Text>
+                <Text style={[s.advisoryMeta, { color: 'rgba(255,255,255,0.55)' }]}>
                   AI · {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
                 </Text>
               </View>
-              <Text style={[s.advisoryText, { color: colors.textSecondary }]}>
+              <Text style={[s.advisoryText, { color: 'rgba(255,255,255,0.82)' }]}>
                 {'"'}
                 {data!.savingsPct >= 20
                   ? `Your savings rate of ${data!.savingsPct.toFixed(0)}% is commendable — above the 20% benchmark. `
@@ -434,20 +451,20 @@ export default function ReportScreen() {
                   : `Your emergency fund is being well-funded. Keep the momentum.`}
                 {'"'}
               </Text>
-            </View>
+            </LinearGradient>
           </View>
 
           {/* Download CTA */}
           <View style={s.section}>
             <TouchableOpacity
-              style={[s.downloadBtn, { backgroundColor: colors.gold }]}
+              style={[s.downloadBtn, { borderWidth: 1.5, borderColor: colors.gold }]}
               activeOpacity={0.85}
               onPress={() =>
                 Alert.alert('Coming Soon', 'PDF download will be available in the next update.')
               }
             >
-              <Ionicons name="document-text-outline" size={20} color={isDark ? colors.bg : '#FFF'} />
-              <Text style={[s.downloadText, { color: isDark ? colors.bg : '#FFF' }]}>
+              <Ionicons name="document-text-outline" size={20} color={colors.gold} />
+              <Text style={[s.downloadText, { color: colors.gold }]}>
                 Download Report PDF
               </Text>
             </TouchableOpacity>
@@ -500,7 +517,7 @@ function makeStyles(colors: any, isDark: boolean) {
       backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
     },
-    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14, gap: 10 },
+    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14, gap: 10, borderLeftWidth: 3, borderLeftColor: 'transparent' },
     alertIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     alertInfo: { flex: 1 },
     alertLabel: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary, marginBottom: 2 },

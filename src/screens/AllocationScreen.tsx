@@ -490,7 +490,7 @@ export default function AllocationScreen() {
                   onLayout={(e) => { cardOffsets.current[bucket.name] = e.nativeEvent.layout.y; }}
                 >
                   <View style={s.bucketTop}>
-                    <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22' }]}>
+                    <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22', borderColor: bucket.color + '44' }]}>
                       <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
                     </View>
                     <View style={s.bucketNameCol}>
@@ -535,6 +535,9 @@ export default function AllocationScreen() {
                       </TouchableOpacity>
                     )}
                   </View>
+                  <View style={[s.bucketBarTrack, { marginTop: 10 }]}>
+                    <View style={[s.bucketBarFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: bucket.color }]} />
+                  </View>
                 </View>
               );
             })}
@@ -543,6 +546,9 @@ export default function AllocationScreen() {
               <Ionicons name="add-circle-outline" size={20} color={colors.gold} />
               <Text style={s.addBucketCardTxt}>Add a custom bucket</Text>
             </TouchableOpacity>
+            <Text style={s.allocationQuote}>
+              {'"Give every naira a name — Steward budgeting principle"'}
+            </Text>
           </View>
       </ScrollView>
 
@@ -588,8 +594,8 @@ function makeStyles(colors: any, isDark: boolean) {
       shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 8, elevation: isDark ? 0 : 3,
     },
     summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-    summaryLabel: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-    summaryTotal: { fontFamily: FONTS.display, fontSize: 36, color: colors.textPrimary, letterSpacing: -1 },
+    summaryLabel: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.gold + 'B3', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+    summaryTotal: { fontFamily: FONTS.headingItalic, fontSize: 44, color: colors.textPrimary, letterSpacing: -1 },
 
     remainingPill: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -631,10 +637,10 @@ function makeStyles(colors: any, isDark: boolean) {
       shadowOffset: { width: 0, height: 1 }, shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
     bucketTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    bucketIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    bucketIconWrap: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1 },
     bucketNameCol: { flex: 1, minWidth: 0 },
     bucketNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 1 },
-    bucketName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, flexShrink: 1 },
+    bucketName: { fontFamily: FONTS.headingItalic, fontSize: 15, color: colors.textPrimary, flexShrink: 1 },
     thresholdDot: { width: 7, height: 7, borderRadius: 4, marginLeft: 5, flexShrink: 0 },
     thresholdInline: { fontFamily: FONTS.regular, fontSize: 11, marginBottom: 1, color: colors.textMuted },
     bucketPct: { fontFamily: FONTS.medium, fontSize: 11 },
@@ -665,5 +671,14 @@ function makeStyles(colors: any, isDark: boolean) {
       borderStyle: 'dashed', padding: 18, justifyContent: 'center',
     },
     addBucketCardTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.gold },
+
+    bucketBarTrack: { height: 3, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+    bucketBarFill: { height: 3, borderRadius: 2 },
+
+    allocationQuote: {
+      fontFamily: FONTS.headingItalic, fontSize: 12,
+      color: colors.textMuted, textAlign: 'center',
+      marginTop: 16, paddingHorizontal: 20, lineHeight: 18,
+    },
   });
 }

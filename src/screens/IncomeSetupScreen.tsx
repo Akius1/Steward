@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
@@ -26,7 +27,7 @@ const INCOME_TYPES: IncomeType[] = ['SALARY', 'FREELANCE', 'BUSINESS', 'GIFT', '
 
 const TYPE_META: Record<IncomeType, { icon: React.ComponentProps<typeof Ionicons>['name']; color: string; bg: string }> = {
   SALARY:        { icon: 'briefcase-outline',  color: '#10B97A', bg: 'rgba(16,185,122,0.12)' },
-  FREELANCE:     { icon: 'laptop-outline',     color: '#C9943F', bg: 'rgba(201,148,63,0.12)' },
+  FREELANCE:     { icon: 'laptop-outline',     color: '#ebc076', bg: 'rgba(235,192,118,0.12)' },
   BUSINESS:      { icon: 'business-outline',   color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
   GIFT:          { icon: 'gift-outline',       color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
   'SIDE INCOME': { icon: 'flash-outline',      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
@@ -34,7 +35,7 @@ const TYPE_META: Record<IncomeType, { icon: React.ComponentProps<typeof Ionicons
 
 const TYPE_BADGE: Record<IncomeType, { bg: string; text: string }> = {
   SALARY:        { bg: 'rgba(16,185,122,0.15)',  text: '#10B97A' },
-  FREELANCE:     { bg: 'rgba(201,148,63,0.15)',  text: '#E8BE70' },
+  FREELANCE:     { bg: 'rgba(235,192,118,0.15)', text: '#ebc076' },
   BUSINESS:      { bg: 'rgba(96,165,250,0.15)',  text: '#60A5FA' },
   GIFT:          { bg: 'rgba(167,139,250,0.15)', text: '#A78BFA' },
   'SIDE INCOME': { bg: 'rgba(245,158,11,0.15)',  text: '#F59E0B' },
@@ -718,8 +719,13 @@ export default function IncomeSetupScreen() {
         )}
 
         {/* ── Hero Card ───────────────────────────────────── */}
-        <View style={s.heroCard}>
-          {/* Decorative gold glow */}
+        <LinearGradient
+          colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.heroCard}
+        >
+          {/* Decorative gold ambient glow */}
           <View style={s.heroGlow} pointerEvents="none" />
 
           {/* Top section */}
@@ -776,7 +782,7 @@ export default function IncomeSetupScreen() {
               <Text style={s.heroStatLbl}>Remaining</Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* ── Income Sources ─────────────────────────────── */}
         <View style={s.section}>
@@ -844,6 +850,33 @@ export default function IncomeSetupScreen() {
           {sources.length > 0 && (
             <Text style={s.longPressHint}>Long-press a card to remove it</Text>
           )}
+        </View>
+
+        {/* ── Bento Action Cards ─────────────────────────── */}
+        <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginBottom: 8 }}>
+          <TouchableOpacity
+            style={[s.bentoCard, { flex: 1 }]}
+            activeOpacity={0.8}
+            onPress={() => Alert.alert('Coming Soon', 'Smart Allocate will auto-distribute your income in the next update.')}
+          >
+            <View style={[s.bentoIcon, { backgroundColor: colors.goldBg }]}>
+              <Ionicons name="sparkles-outline" size={18} color={colors.gold} />
+            </View>
+            <Text style={s.bentoBoldText}>Smart Allocate</Text>
+            <Text style={s.bentoSubText}>Auto-distribute income</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.bentoCard, { flex: 1 }]}
+            activeOpacity={0.8}
+            onPress={() => Alert.alert('Coming Soon', 'Tax Reserves will set aside your tax obligations automatically.')}
+          >
+            <View style={[s.bentoIcon, { backgroundColor: colors.infoBg }]}>
+              <Ionicons name="calculator-outline" size={18} color={colors.info} />
+            </View>
+            <Text style={s.bentoBoldText}>Tax Reserves</Text>
+            <Text style={s.bentoSubText}>Auto-set aside tax</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Sign Out ────────────────────────────────────── */}
@@ -974,7 +1007,6 @@ function makeStyles(colors: any, isDark: boolean) {
       marginHorizontal: 20,
       marginTop: 16,
       marginBottom: 24,
-      backgroundColor: colors.card,
       borderRadius: 24,
       overflow: 'hidden',
       ...(isDark
@@ -1005,44 +1037,44 @@ function makeStyles(colors: any, isDark: boolean) {
     heroLabel: {
       fontFamily: FONTS.semibold,
       fontSize: 10,
-      color: colors.textMuted,
+      color: 'rgba(255,255,255,0.55)',
       letterSpacing: 1,
       textTransform: 'uppercase',
     },
-    heroMonth: { fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted },
+    heroMonth: { fontFamily: FONTS.regular, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
     heroAmountRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 10 },
     heroCurrSym: {
-      fontFamily: FONTS.heading,
-      fontSize: 18,
-      color: colors.gold,
+      fontFamily: FONTS.headingItalic,
+      fontSize: 22,
+      color: colors.goldLight,
       marginRight: 4,
       paddingBottom: 5,
     },
     heroAmountNum: {
-      fontFamily: FONTS.display,
-      fontSize: 40,
-      color: colors.textPrimary,
+      fontFamily: FONTS.headingItalic,
+      fontSize: 42,
+      color: colors.goldLight,
       letterSpacing: -1.5,
     },
     heroEmptyAmt: {
       fontFamily: FONTS.headingItalic,
       fontSize: 22,
-      color: colors.textMuted,
+      color: 'rgba(255,255,255,0.45)',
       marginTop: 10,
     },
     allocBarTrack: {
       height: 8,
       borderRadius: 4,
-      backgroundColor: colors.border,
+      backgroundColor: 'rgba(255,255,255,0.15)',
       overflow: 'hidden',
       marginTop: 20,
     },
     allocBarFill: {
       height: 8,
       borderRadius: 4,
-      backgroundColor: colors.gold,
+      backgroundColor: colors.goldLight,
     },
-    heroDivider: { height: 1, backgroundColor: colors.border, marginTop: 16 },
+    heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.10)', marginTop: 16 },
     heroStats: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1053,11 +1085,11 @@ function makeStyles(colors: any, isDark: boolean) {
     heroStatVal: {
       fontFamily: FONTS.semibold,
       fontSize: 16,
-      color: colors.textPrimary,
+      color: 'rgba(255,255,255,0.9)',
       marginBottom: 3,
     },
-    heroStatLbl: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
-    heroStatLine: { width: 1, height: 32, backgroundColor: colors.border },
+    heroStatLbl: { fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.5)' },
+    heroStatLine: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.15)' },
 
     // ── Income Sources section ───────────────────────────────────────────────
     section: { paddingHorizontal: 20, marginBottom: 28 },
@@ -1160,6 +1192,39 @@ function makeStyles(colors: any, isDark: boolean) {
       color: colors.textMuted,
       textAlign: 'center',
       marginTop: 4,
+    },
+
+    // Bento action cards
+    bentoCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: colors.border,
+      padding: 16,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.06,
+      shadowRadius: 4,
+      elevation: isDark ? 0 : 2,
+    },
+    bentoIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+    },
+    bentoBoldText: {
+      fontFamily: FONTS.semibold,
+      fontSize: 14,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    bentoSubText: {
+      fontFamily: FONTS.regular,
+      fontSize: 12,
+      color: colors.textMuted,
     },
 
     // Sign out
