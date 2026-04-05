@@ -8,12 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Keyboard,
 } from 'react-native';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/utils/supabase';
@@ -197,40 +195,10 @@ function AddBucketModal({
   );
 }
 
-// ─── Keyboard Done Bar ────────────────────────────────────────────────────────
-function KeyboardDoneBar({ visible, colors }: { visible: boolean; colors: any }) {
-  if (!visible) return null;
-  return (
-    <View style={{
-      backgroundColor: colors.surface,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      borderRadius: 0,
-    }}>
-      <TouchableOpacity
-        onPress={Keyboard.dismiss}
-        style={{
-          backgroundColor: colors.gold,
-          borderRadius: 20,
-          paddingHorizontal: 24,
-          paddingVertical: 10,
-        }}
-      >
-        <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: '#FFF' }}>Done</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AllocationScreen() {
   const { colors, isDark } = useTheme();
   const { user, household, currency } = useAuth();
-  const insets = useSafeAreaInsets();
 
   const [totalIncome, setTotalIncome] = useState(0);
   const [buckets, setBuckets] = useState<BucketState[]>(
@@ -443,15 +411,7 @@ export default function AllocationScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Keyboard Done bar (shows above keyboard on both platforms) */}
-      <KeyboardDoneBar visible={keyboardVisible} colors={colors} />
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 60 : 0}
-      >
-        <ScrollView
+      <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scrollContent}
@@ -584,8 +544,7 @@ export default function AllocationScreen() {
               <Text style={s.addBucketCardTxt}>Add a custom bucket</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
 
       <AddBucketModal
         visible={showAddBucket}
@@ -671,28 +630,30 @@ function makeStyles(colors: any, isDark: boolean) {
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 1 }, shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
-    bucketTop: { flexDirection: 'row', alignItems: 'center' },
-    bucketIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    bucketNameCol: { flex: 1 },
-    bucketNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-    bucketName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary },
-    thresholdDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 6 },
-    thresholdInline: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 2 },
+    bucketTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    bucketIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    bucketNameCol: { flex: 1, minWidth: 0 },
+    bucketNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 1 },
+    bucketName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, flexShrink: 1 },
+    thresholdDot: { width: 7, height: 7, borderRadius: 4, marginLeft: 5, flexShrink: 0 },
+    thresholdInline: { fontFamily: FONTS.regular, fontSize: 11, marginBottom: 1, color: colors.textMuted },
     bucketPct: { fontFamily: FONTS.medium, fontSize: 11 },
 
     amountWrap: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: colors.surface, borderRadius: 12,
       borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 10, paddingVertical: 12, minWidth: 110,
+      paddingHorizontal: 10, paddingVertical: 11,
+      width: 118, flexShrink: 0,
     },
-    currencySign: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textMuted, marginRight: 4 },
+    currencySign: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textMuted, marginRight: 3 },
     amountInput: {
-      fontFamily: FONTS.semibold, fontSize: 17,
-      flex: 1, minWidth: 70, textAlign: 'right',
+      fontFamily: FONTS.semibold, fontSize: 16,
+      flex: 1, textAlign: 'right',
       color: colors.textPrimary,
       includeFontPadding: false,
       textAlignVertical: 'center',
+      padding: 0,
     },
 
     removeBucketBtn: { marginLeft: 8 },
