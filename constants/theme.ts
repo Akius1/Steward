@@ -37,29 +37,29 @@ export const DARK_COLORS = {
   pinkBg: 'rgba(244, 114, 182, 0.12)',
 
   shadow: 'transparent',
-  overlay: 'rgba(0,0,0,0.7)',
+  overlay: 'rgba(0,0,0,0.72)',
 } as const;
 
 // ─── Light Palette — "Warm Parchment" ────────────────────────────────────────
 export const LIGHT_COLORS = {
-  bg: '#F5F0E8',           // Warm parchment — not sterile white
-  surface: '#FFFDF9',      // Warm white surface
-  card: '#FFFFFF',         // Pure white card (pops on parchment)
-  cardElevated: '#FDF8F0', // Slightly warm elevated
-  border: '#E8E1D4',       // Warm tan border
-  borderLight: '#EEE9E0',  // Lighter warm border
+  bg: '#F4EFE6',           // Warm parchment
+  surface: '#FFFDF9',
+  card: '#FFFFFF',
+  cardElevated: '#FDF8F0',
+  border: '#E8E1D4',
+  borderLight: '#EEE9E0',
 
-  gold: '#A0722A',         // Darker gold for contrast on white
-  goldLight: '#C9943F',    // Medium gold
-  goldDim: '#D4B896',      // Muted gold
+  gold: '#A0722A',
+  goldLight: '#C9943F',
+  goldDim: '#D4B896',
   goldBg: 'rgba(160, 114, 42, 0.08)',
   goldBgStrong: 'rgba(160, 114, 42, 0.14)',
 
-  emerald: '#0A9660',      // Slightly darker emerald for contrast
+  emerald: '#0A9660',
   emeraldLight: '#10B97A',
   emeraldBg: 'rgba(10, 150, 96, 0.10)',
 
-  textPrimary: '#12202E',  // Deep navy text
+  textPrimary: '#12202E',
   textSecondary: '#4E6478',
   textMuted: '#8FA3B5',
 
@@ -76,14 +76,12 @@ export const LIGHT_COLORS = {
   pink: '#BE185D',
   pinkBg: 'rgba(190, 24, 93, 0.10)',
 
-  shadow: 'rgba(18, 32, 46, 0.08)',
+  shadow: 'rgba(18, 32, 46, 0.10)',
   overlay: 'rgba(18, 32, 46, 0.5)',
 } as const;
 
-// ─── Keep backward-compat alias (dark by default) ────────────────────────────
 export const COLORS = DARK_COLORS;
 
-// Structural type (string values) so dark and light palettes are interchangeable
 export type ColorPalette = {
   [K in keyof typeof DARK_COLORS]: string;
 };
@@ -98,7 +96,51 @@ export const FONTS = {
   regular: 'DMSans_400Regular',
 } as const;
 
-// ─── Allocation bucket palette (consistent across themes) ────────────────────
+// ─── Spacing ─────────────────────────────────────────────────────────────────
+export const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+} as const;
+
+// ─── Border Radii ─────────────────────────────────────────────────────────────
+export const RADII = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 28,
+  full: 9999,
+} as const;
+
+// ─── Shadows (light mode only — dark uses borders) ───────────────────────────
+export const SHADOWS = {
+  sm: {
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  md: {
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  lg: {
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+} as const;
+
+// ─── Allocation bucket palette ────────────────────────────────────────────────
 export const BUCKET_COLORS = [
   '#C9943F', // Gold      — Rent/Housing
   '#10B97A', // Emerald   — Food
@@ -110,7 +152,6 @@ export const BUCKET_COLORS = [
   '#818CF8', // Indigo    — Covenant Practice
 ] as const;
 
-// Extra colours cycled for user-created custom buckets
 export const CUSTOM_BUCKET_COLORS = [
   '#06B6D4', // Cyan
   '#FB923C', // Orange

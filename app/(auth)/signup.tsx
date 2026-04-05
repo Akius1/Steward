@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
@@ -48,6 +49,7 @@ export default function SignupScreen() {
       Alert.alert('Weak password', 'Password must be at least 6 characters.');
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -100,17 +102,18 @@ export default function SignupScreen() {
     r3: { width: 400, height: 400, borderColor: colors.gold + '08' },
     wordmark: {
       fontFamily: FONTS.display,
-      fontSize: 46,
+      fontSize: 56,
       color: colors.gold,
       letterSpacing: -2,
       zIndex: 2,
     },
     tagline: {
       fontFamily: FONTS.headingItalic,
-      fontSize: 13,
+      fontSize: 14,
       color: colors.textSecondary,
-      marginTop: 4,
+      marginTop: 6,
       zIndex: 2,
+      fontStyle: 'italic',
     },
     themeBtn: {
       position: 'absolute',
@@ -126,12 +129,12 @@ export default function SignupScreen() {
 
     card: {
       backgroundColor: colors.card,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
       borderWidth: isDark ? 1 : 0,
       borderColor: colors.border,
       paddingHorizontal: 28,
-      paddingTop: 28,
+      paddingTop: 32,
       paddingBottom: 40,
       flex: 1,
       shadowColor: colors.shadow,
@@ -141,8 +144,8 @@ export default function SignupScreen() {
       elevation: isDark ? 0 : 4,
     },
     cardTitle: {
-      fontFamily: FONTS.heading,
-      fontSize: 28,
+      fontFamily: FONTS.display,
+      fontSize: 30,
       color: colors.textPrimary,
       marginBottom: 4,
     },
@@ -150,9 +153,10 @@ export default function SignupScreen() {
       fontFamily: FONTS.regular,
       fontSize: 14,
       color: colors.textSecondary,
-      marginBottom: 24,
+      marginBottom: 32,
     },
 
+    // ── Input fields ────────────────────────────────────
     fieldLabel: {
       fontFamily: FONTS.medium,
       fontSize: 11,
@@ -164,10 +168,12 @@ export default function SignupScreen() {
     fieldWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderBottomWidth: 1.5,
-      paddingBottom: 10,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      paddingHorizontal: 16,
+      paddingVertical: 15,
       marginBottom: 20,
-      gap: 10,
+      gap: 12,
     },
     fieldInput: {
       flex: 1,
@@ -182,12 +188,14 @@ export default function SignupScreen() {
 
     btn: {
       backgroundColor: colors.gold,
-      borderRadius: 14,
-      height: 54,
+      borderRadius: 16,
+      height: 56,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: 8,
       marginBottom: 20,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.15)',
     },
     btnText: {
       fontFamily: FONTS.semibold,
@@ -240,7 +248,7 @@ export default function SignupScreen() {
       borderColor: colors.gold + '30',
     },
     confirmTitle: {
-      fontFamily: FONTS.heading,
+      fontFamily: FONTS.display,
       fontSize: 26,
       color: colors.textPrimary,
       textAlign: 'center',
@@ -269,8 +277,8 @@ export default function SignupScreen() {
     resendBtn: {
       borderWidth: 1.5,
       borderColor: colors.gold,
-      borderRadius: 14,
-      height: 50,
+      borderRadius: 16,
+      height: 56,
       alignItems: 'center',
       justifyContent: 'center',
       width: '100%',
@@ -325,7 +333,7 @@ export default function SignupScreen() {
           <View style={[s.ring, s.r2]} />
           <View style={[s.ring, s.r1]} />
           <Text style={s.wordmark}>Steward</Text>
-          <Text style={s.tagline}>Your personal financial OS</Text>
+          <Text style={s.tagline}>Give every naira a purpose.</Text>
         </View>
 
         <View style={[s.card, s.confirmWrap]}>
@@ -384,7 +392,7 @@ export default function SignupScreen() {
             <View style={[s.ring, s.r2]} />
             <View style={[s.ring, s.r1]} />
             <Text style={s.wordmark}>Steward</Text>
-            <Text style={s.tagline}>Your personal financial OS</Text>
+            <Text style={s.tagline}>Give every naira a purpose.</Text>
           </View>
 
           {/* ── Card ─────────────────────────────────────── */}
@@ -394,8 +402,20 @@ export default function SignupScreen() {
 
             {/* Name */}
             <Text style={s.fieldLabel}>Full name</Text>
-            <View style={[s.fieldWrap, { borderBottomColor: nameFocused ? colors.gold : colors.border }]}>
-              <Ionicons name="person-outline" size={18} color={nameFocused ? colors.gold : colors.textMuted} />
+            <View
+              style={[
+                s.fieldWrap,
+                {
+                  borderColor: nameFocused ? colors.gold : colors.border,
+                  backgroundColor: nameFocused ? colors.goldBg : colors.surface,
+                },
+              ]}
+            >
+              <Ionicons
+                name="person-outline"
+                size={18}
+                color={nameFocused ? colors.gold : colors.textMuted}
+              />
               <TextInput
                 style={s.fieldInput}
                 placeholder="Andrew Steward"
@@ -404,6 +424,8 @@ export default function SignupScreen() {
                 onChangeText={setName}
                 autoCapitalize="words"
                 returnKeyType="next"
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '44'}
                 onFocus={() => setNameFocused(true)}
                 onBlur={() => setNameFocused(false)}
                 onSubmitEditing={() => emailRef.current?.focus()}
@@ -412,8 +434,20 @@ export default function SignupScreen() {
 
             {/* Email */}
             <Text style={s.fieldLabel}>Email address</Text>
-            <View style={[s.fieldWrap, { borderBottomColor: emailFocused ? colors.gold : colors.border }]}>
-              <Ionicons name="mail-outline" size={18} color={emailFocused ? colors.gold : colors.textMuted} />
+            <View
+              style={[
+                s.fieldWrap,
+                {
+                  borderColor: emailFocused ? colors.gold : colors.border,
+                  backgroundColor: emailFocused ? colors.goldBg : colors.surface,
+                },
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={emailFocused ? colors.gold : colors.textMuted}
+              />
               <TextInput
                 ref={emailRef}
                 style={s.fieldInput}
@@ -424,6 +458,8 @@ export default function SignupScreen() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 returnKeyType="next"
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '44'}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
                 onSubmitEditing={() => pwRef.current?.focus()}
@@ -432,8 +468,21 @@ export default function SignupScreen() {
 
             {/* Password */}
             <Text style={s.fieldLabel}>Password</Text>
-            <View style={[s.fieldWrap, { borderBottomColor: pwFocused ? colors.gold : colors.border }]}>
-              <Ionicons name="lock-closed-outline" size={18} color={pwFocused ? colors.gold : colors.textMuted} />
+            <View
+              style={[
+                s.fieldWrap,
+                {
+                  borderColor: pwFocused ? colors.gold : colors.border,
+                  backgroundColor: pwFocused ? colors.goldBg : colors.surface,
+                },
+                password.length > 0 && { marginBottom: 8 },
+              ]}
+            >
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={pwFocused ? colors.gold : colors.textMuted}
+              />
               <TextInput
                 ref={pwRef}
                 style={s.fieldInput}
@@ -443,6 +492,8 @@ export default function SignupScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 returnKeyType="done"
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '44'}
                 onFocus={() => setPwFocused(true)}
                 onBlur={() => setPwFocused(false)}
                 onSubmitEditing={handleSignup}
@@ -451,7 +502,7 @@ export default function SignupScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={18}
-                  color={colors.textMuted}
+                  color={pwFocused ? colors.gold : colors.textMuted}
                 />
               </TouchableOpacity>
             </View>

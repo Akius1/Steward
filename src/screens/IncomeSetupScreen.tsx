@@ -558,6 +558,7 @@ export default function IncomeSetupScreen() {
   const firstName = profile?.name?.split(' ')[0] ?? 'there';
   const totalIncome = sources.reduce((s, src) => s + src.amount, 0);
   const isFullyAllocated = allocPct >= 99;
+  const remaining = totalIncome > 0 ? Math.round(totalIncome * (1 - allocPct / 100)) : 0;
 
   // ── Data loading ────────────────────────────────────────────────────────────
   const loadSources = useCallback(async () => {
@@ -621,6 +622,14 @@ export default function IncomeSetupScreen() {
     );
   }
 
+  // ── Helper: format large numbers compactly (e.g. ₦540K) ─────────────────────
+  function fmtCompact(amount: number): string {
+    const sym = CURRENCIES[currency].symbol;
+    if (amount >= 1_000_000) return `${sym}${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `${sym}${Math.round(amount / 1_000)}K`;
+    return `${sym}${amount}`;
+  }
+
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -651,22 +660,22 @@ export default function IncomeSetupScreen() {
         <View style={s.appHeader}>
           <Text style={s.wordmark}>Steward</Text>
           <View style={s.headerActions}>
-            {/* Currency picker */}
-            <TouchableOpacity style={s.currencyChip} onPress={() => setShowCurrency(true)}>
+            {/* Currency chip */}
+            <TouchableOpacity style={s.currencyChip} onPress={() => setShowCurrency(true)} activeOpacity={0.75}>
               <Text style={s.currencyChipFlag}>{CURRENCIES[currency].flag}</Text>
               <Text style={s.currencyChipCode}>{currency}</Text>
-              <Ionicons name="chevron-down" size={12} color={colors.gold} />
             </TouchableOpacity>
             {/* Theme toggle */}
-            <TouchableOpacity style={s.iconBtn} onPress={toggleColorMode}>
-              <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.gold} />
+            <TouchableOpacity style={s.themeToggle} onPress={toggleColorMode} activeOpacity={0.75}>
+              <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color={colors.textSecondary} />
             </TouchableOpacity>
             {/* Avatar / account */}
             <TouchableOpacity style={s.avatarBtn}
               onPress={() => Alert.alert(profile?.name ?? 'Account', user?.email ?? '', [
                 { text: 'Sign Out', style: 'destructive', onPress: signOut },
                 { text: 'Cancel', style: 'cancel' },
-              ])}>
+              ])}
+              activeOpacity={0.8}>
               <Text style={s.avatarLetter}>{(profile?.name ?? 'U').charAt(0).toUpperCase()}</Text>
             </TouchableOpacity>
           </View>
@@ -674,142 +683,161 @@ export default function IncomeSetupScreen() {
 
         {/* ── Greeting ───────────────────────────────────── */}
         <View style={s.greetingBlock}>
-          <Text style={s.greeting}>{getGreeting()},{'\n'}{firstName}</Text>
-          <Text style={s.subGreeting}>{getMonth()} · Income Overview</Text>
+          <Text style={s.greetingLine}>{getGreeting()},</Text>
+          <Text style={s.greetingName}>{firstName}</Text>
+          <Text style={s.greetingMeta}>{getMonth()} · Income</Text>
         </View>
 
         {/* ── Household Banner ────────────────────────────── */}
-        <TouchableOpacity style={s.householdBanner} onPress={() => setShowHousehold(true)} activeOpacity={0.8}>
-          <View style={[s.hhIconSmall, household && { backgroundColor: colors.goldBg }]}>
-            <Ionicons name={household ? 'people' : 'people-outline'} size={16}
-              color={household ? colors.gold : colors.textMuted} />
-          </View>
-          <View style={{ flex: 1 }}>
-            {household ? (
-              <>
-                <Text style={s.hhBannerTitle}>{household.name}</Text>
-                <Text style={s.hhBannerSub}>{householdMembers.length} member{householdMembers.length !== 1 ? 's' : ''} · Tap to manage</Text>
-              </>
-            ) : (
-              <>
-                <Text style={s.hhBannerTitle}>Budget together</Text>
-                <Text style={s.hhBannerSub}>Create or join a household to share income & allocations</Text>
-              </>
-            )}
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </TouchableOpacity>
+        {household ? (
+          <TouchableOpacity style={s.hhBanner} onPress={() => setShowHousehold(true)} activeOpacity={0.8}>
+            <Ionicons name="people" size={16} color={colors.gold} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={s.hhBannerTitle}>{household.name}</Text>
+              <Text style={s.hhBannerSub}>
+                {householdMembers.length} member{householdMembers.length !== 1 ? 's' : ''} · Tap to manage
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={s.hhBannerEmpty} onPress={() => setShowHousehold(true)} activeOpacity={0.8}>
+            <Ionicons name="people-outline" size={16} color={colors.textMuted} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={s.hhBannerEmptyTitle}>Budget together with your partner</Text>
+              <Text style={s.hhBannerSub}>Create or join a household</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
 
         {/* ── Hero Card ───────────────────────────────────── */}
         <View style={s.heroCard}>
-          <Text style={s.heroLabel}>TOTAL MONTHLY INCOME</Text>
-          {totalIncome > 0 ? (
-            <Text style={s.heroAmount}>{fmt(totalIncome, currency)}</Text>
-          ) : (
-            <Text style={[s.heroAmount, { color: colors.textMuted, fontSize: 26 }]}>
-              Add income sources below
-            </Text>
-          )}
+          {/* Decorative gold glow */}
+          <View style={s.heroGlow} pointerEvents="none" />
 
-          {totalIncome > 0 && (
-            <>
-              {/* Stacked colour bar */}
-              <View style={s.stackedBar}>
-                {BUCKET_COLORS.map((c, i) => (
-                  <View key={i} style={[
-                    s.stackedSeg,
-                    { flex: [29, 10, 22, 10, 5, 15, 9][i], backgroundColor: c },
-                    i > 0 && { marginLeft: 2 },
-                  ]} />
-                ))}
+          {/* Top section */}
+          <View style={s.heroTop}>
+            {/* Row 1: label + month */}
+            <View style={s.heroLabelRow}>
+              <Text style={s.heroLabel}>TOTAL MONTHLY INCOME</Text>
+              <Text style={s.heroMonth}>{getMonth()}</Text>
+            </View>
+
+            {/* Amount */}
+            {totalIncome > 0 ? (
+              <View style={s.heroAmountRow}>
+                <Text style={s.heroCurrSym}>{CURRENCIES[currency].symbol}</Text>
+                <Text style={s.heroAmountNum}>
+                  {totalIncome.toLocaleString('en-NG')}
+                </Text>
               </View>
+            ) : (
+              <Text style={s.heroEmptyAmt}>Add income sources</Text>
+            )}
 
-              {/* Stats row */}
-              <View style={s.statsRow}>
-                <View style={s.statItem}>
-                  <Text style={s.statVal}>{sources.length}</Text>
-                  <Text style={s.statLbl}>Sources</Text>
-                </View>
-                <View style={s.statDiv} />
-                <View style={s.statItem}>
-                  <Text style={[s.statVal, { color: isFullyAllocated ? colors.success : colors.warning }]}>
-                    {allocPct}%
-                  </Text>
-                  <Text style={s.statLbl}>Allocated</Text>
-                </View>
-                <View style={s.statDiv} />
-                <View style={s.statItem}>
-                  <Text style={[s.statVal, { color: isFullyAllocated ? colors.success : colors.textPrimary }]}>
-                    {isFullyAllocated ? fmt(0, currency) : fmt(Math.round(totalIncome * (1 - allocPct / 100)), currency)}
-                  </Text>
-                  <Text style={s.statLbl}>Remaining</Text>
-                </View>
-              </View>
+            {/* Allocation bar */}
+            <View style={s.allocBarTrack}>
+              {totalIncome > 0 && allocPct > 0 ? (
+                <View style={[s.allocBarFill, { width: `${Math.min(allocPct, 100)}%` as any }]} />
+              ) : totalIncome > 0 ? (
+                <View style={[s.allocBarFill, { width: '0%' as any }]} />
+              ) : null}
+            </View>
+          </View>
 
-              {isFullyAllocated && (
-                <View style={s.allocBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                  <Text style={s.allocBadgeTxt}>
-                    100% allocated · Every {CURRENCIES[currency].name.split(' ')[0]} has a purpose
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
+          {/* Divider */}
+          <View style={s.heroDivider} />
+
+          {/* Stats row */}
+          <View style={s.heroStats}>
+            <View style={s.heroStatCol}>
+              <Text style={s.heroStatVal}>{sources.length}</Text>
+              <Text style={s.heroStatLbl}>Sources</Text>
+            </View>
+            <View style={s.heroStatLine} />
+            <View style={s.heroStatCol}>
+              <Text style={[s.heroStatVal, { color: isFullyAllocated ? colors.emerald : colors.gold }]}>
+                {allocPct}%
+              </Text>
+              <Text style={s.heroStatLbl}>Allocated</Text>
+            </View>
+            <View style={s.heroStatLine} />
+            <View style={s.heroStatCol}>
+              <Text style={[s.heroStatVal, { color: remaining > 0 ? colors.warning : colors.success }]}>
+                {fmtCompact(remaining)}
+              </Text>
+              <Text style={s.heroStatLbl}>Remaining</Text>
+            </View>
+          </View>
         </View>
 
         {/* ── Income Sources ─────────────────────────────── */}
         <View style={s.section}>
+          {/* Section header */}
           <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>Income Sources</Text>
-            <Text style={s.sectionCount}>{sources.length} source{sources.length !== 1 ? 's' : ''}</Text>
+            <View style={s.sectionHeaderLeft}>
+              <Text style={s.sectionTitle}>Income Sources</Text>
+              {sources.length > 0 && (
+                <View style={s.countBadge}>
+                  <Text style={s.countBadgeTxt}>{sources.length}</Text>
+                </View>
+              )}
+            </View>
+            <TouchableOpacity style={s.addIconBtn} onPress={() => setShowAdd(true)} activeOpacity={0.75}>
+              <Ionicons name="add" size={20} color={colors.gold} />
+            </TouchableOpacity>
           </View>
 
           {sources.length === 0 ? (
-            <View style={s.emptyCard}>
-              <Ionicons name="wallet-outline" size={44} color={colors.textMuted} />
+            /* ── Empty state ── */
+            <View style={s.emptyState}>
+              <Ionicons name="wallet-outline" size={64} color={colors.textMuted} />
               <Text style={s.emptyTitle}>No income sources yet</Text>
-              <Text style={s.emptySubtitle}>Add your salary, freelance work, or any income to get started.</Text>
+              <Text style={s.emptySubtitle}>
+                Add your salary, freelance work, or any regular income to get started.
+              </Text>
+              <TouchableOpacity style={s.emptyAddBtn} onPress={() => setShowAdd(true)} activeOpacity={0.8}>
+                <Text style={s.emptyAddBtnTxt}>Add Income Source</Text>
+              </TouchableOpacity>
             </View>
           ) : (
-            sources.map((src, i) => {
+            sources.map((src) => {
               const meta = TYPE_META[src.type] ?? TYPE_META.SALARY;
               const badge = TYPE_BADGE[src.type] ?? TYPE_BADGE.SALARY;
               const isOwn = src.user_id === user?.id;
               return (
                 <TouchableOpacity key={src.id}
-                  style={[s.sourceCard, i > 0 && { marginTop: 10 }]}
+                  style={s.sourceCard}
                   activeOpacity={0.75}
                   onLongPress={() => deleteSource(src.id, src.user_id)}>
+                  {/* Icon */}
                   <View style={[s.srcIconWrap, { backgroundColor: meta.bg }]}>
                     <Ionicons name={meta.icon} size={20} color={meta.color} />
                   </View>
+                  {/* Info */}
                   <View style={s.srcInfo}>
-                    <View style={s.srcNameRow}>
-                      <Text style={s.srcName}>{src.name}</Text>
-                      <View style={[s.typeBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[s.typeBadgeTxt, { color: badge.text }]}>{src.type}</Text>
-                      </View>
-                    </View>
+                    <Text style={s.srcName}>{src.name}</Text>
                     <Text style={s.srcSub}>
                       {src.subtitle ?? 'Income source'}
                       {household && !isOwn ? ' · Partner' : ''}
                     </Text>
                   </View>
+                  {/* Right: amount + type badge */}
                   <View style={s.srcRight}>
                     <Text style={s.srcAmount}>{fmt(src.amount, currency)}</Text>
-                    <Text style={s.srcFreq}>/ month</Text>
+                    <View style={[s.typeBadge, { backgroundColor: badge.bg }]}>
+                      <Text style={[s.typeBadgeTxt, { color: badge.text }]}>{src.type}</Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
             })
           )}
 
-          <TouchableOpacity style={s.addSourceBtn} onPress={() => setShowAdd(true)} activeOpacity={0.75}>
-            <Ionicons name="add-circle-outline" size={18} color={colors.gold} />
-            <Text style={s.addSourceTxt}>Add Income Source</Text>
-          </TouchableOpacity>
-          {sources.length > 0 && <Text style={s.longPressHint}>Long-press a card to remove it</Text>}
+          {sources.length > 0 && (
+            <Text style={s.longPressHint}>Long-press a card to remove it</Text>
+          )}
         </View>
 
         {/* ── Sign Out ────────────────────────────────────── */}
@@ -826,91 +854,316 @@ export default function IncomeSetupScreen() {
 function makeStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
-    scrollContent: { paddingBottom: 48 },
+    scrollContent: { paddingBottom: 56 },
 
-    // Header
-    appHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 2 },
-    wordmark: { fontFamily: FONTS.heading, fontSize: 22, color: colors.gold, letterSpacing: 0.4 },
+    // ── Header ──────────────────────────────────────────────────────────────
+    appHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingTop: 14,
+      paddingBottom: 6,
+    },
+    wordmark: {
+      fontFamily: FONTS.display,
+      fontSize: 24,
+      color: colors.gold,
+      letterSpacing: -0.5,
+    },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    currencyChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: colors.goldBg, borderWidth: 1, borderColor: colors.goldDim },
+    currencyChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+      backgroundColor: colors.goldBg,
+    },
     currencyChipFlag: { fontSize: 14 },
     currencyChipCode: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.gold },
-    iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.goldBg, alignItems: 'center', justifyContent: 'center' },
-    avatarBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.goldBg, borderWidth: 1.5, borderColor: colors.goldDim, alignItems: 'center', justifyContent: 'center' },
-    avatarLetter: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.gold },
-
-    // Greeting
-    greetingBlock: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 16 },
-    greeting: { fontFamily: FONTS.heading, fontSize: 30, color: colors.textPrimary, marginBottom: 4, lineHeight: 38 },
-    subGreeting: { fontFamily: FONTS.regular, fontSize: 14, color: colors.textSecondary },
-
-    // Household banner
-    householdBanner: {
-      flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 20, marginBottom: 16,
-      backgroundColor: colors.card, borderRadius: 14, padding: 14,
-      borderWidth: isDark ? 1 : 0, borderColor: colors.border,
-      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
+    themeToggle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    hhIconSmall: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-    hhBannerTitle: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 },
+    avatarBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.gold,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarLetter: {
+      fontFamily: FONTS.semibold,
+      fontSize: 15,
+      color: isDark ? colors.bg : '#FFFFFF',
+    },
+
+    // ── Greeting ────────────────────────────────────────────────────────────
+    greetingBlock: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 4,
+    },
+    greetingLine: {
+      fontFamily: FONTS.regular,
+      fontSize: 15,
+      color: colors.textSecondary,
+    },
+    greetingName: {
+      fontFamily: FONTS.display,
+      fontSize: 34,
+      color: colors.textPrimary,
+      letterSpacing: -1,
+    },
+    greetingMeta: {
+      fontFamily: FONTS.medium,
+      fontSize: 13,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+
+    // ── Household banners ────────────────────────────────────────────────────
+    hhBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 20,
+      marginTop: 16,
+      marginBottom: 0,
+      backgroundColor: colors.goldBg,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.gold + '30',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    hhBannerTitle: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, marginBottom: 1 },
     hhBannerSub: { fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted },
 
-    // Hero card
+    hhBannerEmpty: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: 20,
+      marginTop: 16,
+      marginBottom: 0,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    hhBannerEmptyTitle: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, marginBottom: 1 },
+
+    // ── Hero Card ────────────────────────────────────────────────────────────
     heroCard: {
-      marginHorizontal: 20, marginBottom: 24, backgroundColor: colors.card, borderRadius: 20,
-      borderWidth: isDark ? 1 : 0, borderColor: colors.border, padding: 20,
-      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: isDark ? 0 : 0.10, shadowRadius: 12, elevation: isDark ? 0 : 4,
+      marginHorizontal: 20,
+      marginTop: 16,
+      marginBottom: 24,
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      overflow: 'hidden',
+      ...(isDark
+        ? { borderWidth: 1, borderColor: colors.border }
+        : {
+            shadowColor: colors.shadow,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.10,
+            shadowRadius: 16,
+            elevation: 6,
+          }),
     },
-    heroLabel: { fontFamily: FONTS.semibold, fontSize: 11, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 },
-    heroAmount: { fontFamily: FONTS.display, fontSize: 42, color: colors.gold, letterSpacing: -1.5, marginBottom: 18 },
-    stackedBar: { flexDirection: 'row', height: 8, borderRadius: 6, overflow: 'hidden', marginBottom: 16 },
-    stackedSeg: { height: 8, borderRadius: 2 },
-    statsRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, marginBottom: 10 },
-    statItem: { flex: 1, alignItems: 'center' },
-    statVal: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary, marginBottom: 3 },
-    statLbl: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
-    statDiv: { width: 1, height: 30, backgroundColor: colors.border },
-    allocBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-    allocBadgeTxt: { fontFamily: FONTS.medium, fontSize: 12, color: colors.success },
+    heroGlow: {
+      position: 'absolute',
+      top: -40,
+      right: -40,
+      width: 160,
+      height: 160,
+      borderRadius: 80,
+      backgroundColor: colors.goldBg,
+    },
+    heroTop: { padding: 20 },
+    heroLabelRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    heroLabel: {
+      fontFamily: FONTS.semibold,
+      fontSize: 10,
+      color: colors.textMuted,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+    },
+    heroMonth: { fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted },
+    heroAmountRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 10 },
+    heroCurrSym: {
+      fontFamily: FONTS.heading,
+      fontSize: 18,
+      color: colors.gold,
+      marginRight: 4,
+      paddingBottom: 5,
+    },
+    heroAmountNum: {
+      fontFamily: FONTS.display,
+      fontSize: 40,
+      color: colors.textPrimary,
+      letterSpacing: -1.5,
+    },
+    heroEmptyAmt: {
+      fontFamily: FONTS.headingItalic,
+      fontSize: 22,
+      color: colors.textMuted,
+      marginTop: 10,
+    },
+    allocBarTrack: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.border,
+      overflow: 'hidden',
+      marginTop: 20,
+    },
+    allocBarFill: {
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.gold,
+    },
+    heroDivider: { height: 1, backgroundColor: colors.border, marginTop: 16 },
+    heroStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+    },
+    heroStatCol: { flex: 1, alignItems: 'center' },
+    heroStatVal: {
+      fontFamily: FONTS.semibold,
+      fontSize: 16,
+      color: colors.textPrimary,
+      marginBottom: 3,
+    },
+    heroStatLbl: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
+    heroStatLine: { width: 1, height: 32, backgroundColor: colors.border },
 
-    // Section
+    // ── Income Sources section ───────────────────────────────────────────────
     section: { paddingHorizontal: 20, marginBottom: 28 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary },
-    sectionCount: { fontFamily: FONTS.medium, fontSize: 13, color: colors.textMuted },
-
-    emptyCard: {
-      backgroundColor: colors.card, borderRadius: 16, borderWidth: isDark ? 1 : 0, borderColor: colors.border,
-      padding: 32, alignItems: 'center', marginBottom: 12,
+    countBadge: {
+      backgroundColor: colors.goldBg,
+      borderRadius: 10,
+      paddingHorizontal: 7,
+      paddingVertical: 2,
     },
-    emptyTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary, marginTop: 14, marginBottom: 6 },
-    emptySubtitle: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+    countBadgeTxt: { fontFamily: FONTS.semibold, fontSize: 11, color: colors.gold },
+    addIconBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: colors.gold,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
+    // Empty state
+    emptyState: { alignItems: 'center', marginTop: 48, paddingHorizontal: 20 },
+    emptyTitle: {
+      fontFamily: FONTS.heading,
+      fontSize: 20,
+      color: colors.textPrimary,
+      marginTop: 20,
+      textAlign: 'center',
+    },
+    emptySubtitle: {
+      fontFamily: FONTS.regular,
+      fontSize: 14,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 22,
+      maxWidth: 260,
+      marginTop: 8,
+    },
+    emptyAddBtn: {
+      backgroundColor: colors.gold,
+      borderRadius: 14,
+      height: 48,
+      width: 200,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 24,
+    },
+    emptyAddBtnTxt: {
+      fontFamily: FONTS.semibold,
+      fontSize: 15,
+      color: isDark ? colors.bg : '#FFFFFF',
+    },
+
+    // Source cards
     sourceCard: {
-      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16,
-      borderWidth: isDark ? 1 : 0, borderColor: colors.border, padding: 14,
-      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: colors.border,
+      padding: 14,
+      marginBottom: 10,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.06,
+      shadowRadius: 4,
+      elevation: isDark ? 0 : 2,
     },
-    srcIconWrap: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    srcInfo: { flex: 1 },
-    srcNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-    srcName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary },
-    srcSub: { fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted },
+    srcIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    srcInfo: { flex: 1, marginLeft: 12 },
+    srcName: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary },
+    srcSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, marginTop: 2 },
     srcRight: { alignItems: 'flex-end' },
-    srcAmount: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary, marginBottom: 3 },
-    srcFreq: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
-    typeBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
-    typeBadgeTxt: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 0.4 },
-
-    addSourceBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      marginTop: 12, paddingVertical: 16, borderRadius: 14,
-      borderWidth: 1.5, borderColor: colors.goldDim, borderStyle: 'dashed', backgroundColor: colors.goldBg,
+    srcAmount: { fontFamily: FONTS.semibold, fontSize: 17, color: colors.textPrimary, marginBottom: 4 },
+    typeBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 20,
     },
-    addSourceTxt: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.gold },
-    longPressHint: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
+    typeBadgeTxt: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 0.3 },
 
-    signOutRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
+    longPressHint: {
+      fontFamily: FONTS.regular,
+      fontSize: 11,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 4,
+    },
+
+    // Sign out
+    signOutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 16,
+    },
     signOutTxt: { fontFamily: FONTS.medium, fontSize: 13, color: colors.textMuted },
   });
 }
