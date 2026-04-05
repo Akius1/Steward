@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
@@ -40,6 +41,7 @@ export default function LoginScreen() {
       Alert.alert('Missing fields', 'Please enter your email and password.');
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
@@ -55,7 +57,7 @@ export default function LoginScreen() {
 
     // ── Decorative area ─────────────────────────────────
     deco: {
-      height: SCREEN_H * 0.40,
+      height: SCREEN_H * 0.36,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -69,7 +71,7 @@ export default function LoginScreen() {
     r3: { width: 420, height: 420, borderColor: colors.gold + '08' },
     wordmark: {
       fontFamily: FONTS.display,
-      fontSize: 52,
+      fontSize: 56,
       color: colors.gold,
       letterSpacing: -2,
       zIndex: 2,
@@ -78,8 +80,9 @@ export default function LoginScreen() {
       fontFamily: FONTS.headingItalic,
       fontSize: 14,
       color: colors.goldLight,
-      marginTop: 4,
+      marginTop: 6,
       zIndex: 2,
+      fontStyle: 'italic',
     },
     themeBtn: {
       position: 'absolute',
@@ -96,12 +99,12 @@ export default function LoginScreen() {
     // ── Card ────────────────────────────────────────────
     card: {
       backgroundColor: colors.card,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
       borderWidth: isDark ? 1 : 0,
       borderColor: colors.border,
       paddingHorizontal: 28,
-      paddingTop: 28,
+      paddingTop: 32,
       paddingBottom: 40,
       flex: 1,
       shadowColor: colors.shadow,
@@ -111,8 +114,8 @@ export default function LoginScreen() {
       elevation: isDark ? 0 : 4,
     },
     cardTitle: {
-      fontFamily: FONTS.heading,
-      fontSize: 28,
+      fontFamily: FONTS.display,
+      fontSize: 30,
       color: colors.textPrimary,
       marginBottom: 4,
     },
@@ -120,25 +123,10 @@ export default function LoginScreen() {
       fontFamily: FONTS.regular,
       fontSize: 14,
       color: colors.textSecondary,
-      marginBottom: 28,
+      marginBottom: 32,
     },
 
     // ── Input fields ────────────────────────────────────
-    fieldWrap: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderBottomWidth: 1.5,
-      paddingBottom: 10,
-      marginBottom: 22,
-      gap: 10,
-    },
-    fieldInput: {
-      flex: 1,
-      fontFamily: FONTS.medium,
-      fontSize: 15,
-      color: colors.textPrimary,
-      paddingVertical: 0,
-    },
     fieldLabel: {
       fontFamily: FONTS.medium,
       fontSize: 11,
@@ -147,10 +135,27 @@ export default function LoginScreen() {
       textTransform: 'uppercase',
       marginBottom: 6,
     },
+    fieldWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 14,
+      borderWidth: 1.5,
+      paddingHorizontal: 16,
+      paddingVertical: 15,
+      marginBottom: 20,
+      gap: 12,
+    },
+    fieldInput: {
+      flex: 1,
+      fontFamily: FONTS.medium,
+      fontSize: 15,
+      color: colors.textPrimary,
+      paddingVertical: 0,
+    },
 
     forgotRow: {
       alignItems: 'flex-end',
-      marginTop: -8,
+      marginTop: 4,
       marginBottom: 28,
     },
     forgotText: {
@@ -162,11 +167,13 @@ export default function LoginScreen() {
     // ── Buttons ─────────────────────────────────────────
     signInBtn: {
       backgroundColor: colors.gold,
-      borderRadius: 14,
-      height: 54,
+      borderRadius: 16,
+      height: 56,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 20,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.15)',
     },
     signInText: {
       fontFamily: FONTS.semibold,
@@ -225,7 +232,10 @@ export default function LoginScreen() {
             <View
               style={[
                 s.fieldWrap,
-                { borderBottomColor: emailFocused ? colors.gold : colors.border },
+                {
+                  borderColor: emailFocused ? colors.gold : colors.border,
+                  backgroundColor: emailFocused ? colors.goldBg : colors.surface,
+                },
               ]}
             >
               <Ionicons
@@ -242,6 +252,8 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 returnKeyType="next"
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '44'}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
                 onSubmitEditing={() => pwRef.current?.focus()}
@@ -253,7 +265,10 @@ export default function LoginScreen() {
             <View
               style={[
                 s.fieldWrap,
-                { borderBottomColor: pwFocused ? colors.gold : colors.border },
+                {
+                  borderColor: pwFocused ? colors.gold : colors.border,
+                  backgroundColor: pwFocused ? colors.goldBg : colors.surface,
+                },
               ]}
             >
               <Ionicons
@@ -270,6 +285,8 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 returnKeyType="done"
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '44'}
                 onFocus={() => setPwFocused(true)}
                 onBlur={() => setPwFocused(false)}
                 onSubmitEditing={handleLogin}
@@ -278,7 +295,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={18}
-                  color={colors.textMuted}
+                  color={pwFocused ? colors.gold : colors.textMuted}
                 />
               </TouchableOpacity>
             </View>

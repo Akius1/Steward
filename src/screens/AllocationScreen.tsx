@@ -198,7 +198,6 @@ function AddBucketModal({
 }
 
 // ─── Keyboard Done Bar ────────────────────────────────────────────────────────
-// Floating "Done" bar shown above the keyboard so users can always dismiss it
 function KeyboardDoneBar({ visible, colors }: { visible: boolean; colors: any }) {
   if (!visible) return null;
   return (
@@ -210,14 +209,15 @@ function KeyboardDoneBar({ visible, colors }: { visible: boolean; colors: any })
       paddingVertical: 10,
       flexDirection: 'row',
       justifyContent: 'flex-end',
+      borderRadius: 0,
     }}>
       <TouchableOpacity
         onPress={Keyboard.dismiss}
         style={{
           backgroundColor: colors.gold,
-          borderRadius: 8,
-          paddingHorizontal: 18,
-          paddingVertical: 8,
+          borderRadius: 20,
+          paddingHorizontal: 24,
+          paddingVertical: 10,
         }}
       >
         <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: '#FFF' }}>Done</Text>
@@ -438,7 +438,7 @@ export default function AllocationScreen() {
         >
           {saving
             ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
-            : <Text style={s.saveBtnText}>{keyboardVisible ? 'Done' : 'Save'}</Text>
+            : <Text style={s.saveBtnText}>{keyboardVisible ? 'Done ✓' : 'Save'}</Text>
           }
         </TouchableOpacity>
       </View>
@@ -490,16 +490,11 @@ export default function AllocationScreen() {
               {buckets.map((b) => (
                 <View key={b.name} style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: b.color }]} />
-                  <Text style={s.legendLabel}>{totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%</Text>
+                  <Text style={s.legendLabel}>
+                    {b.name.slice(0, 3)} {totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%
+                  </Text>
                 </View>
               ))}
-            </View>
-
-            <View style={s.progressRow}>
-              <View style={s.progressTrack}>
-                <View style={[s.progressFill, { width: `${Math.min(allocPct, 100)}%` as any, backgroundColor: isBalanced ? colors.emerald : colors.gold }]} />
-              </View>
-              <Text style={[s.progressLabel, { color: isBalanced ? colors.emerald : colors.gold }]}>{allocPct}%</Text>
             </View>
 
             {!isBalanced && Math.abs(remaining) < totalIncome * 0.2 && (
@@ -513,10 +508,7 @@ export default function AllocationScreen() {
           {/* ── Bucket Cards ─────────────────────────────────── */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <View>
-                <Text style={s.sectionTitle}>Budget Buckets</Text>
-                <Text style={s.sectionSubtitle}>Tap an amount to edit · Must total {fmt(totalIncome, currency)}</Text>
-              </View>
+              <Text style={s.sectionTitle}>Budget Buckets</Text>
               <TouchableOpacity style={s.addBucketBtn} onPress={() => setShowAddBucket(true)} activeOpacity={0.8}>
                 <Ionicons name="add" size={16} color={colors.gold} />
                 <Text style={s.addBucketTxt}>Add</Text>
@@ -528,9 +520,6 @@ export default function AllocationScreen() {
               const threshold = getThreshold(bucket.name, pct);
               const isFocused = focusedBucket === bucket.name;
 
-              const statusIcon = threshold?.status === 'success' ? 'checkmark-circle-outline'
-                : threshold?.status === 'warning' ? 'warning-outline'
-                : threshold?.status === 'danger' ? 'close-circle-outline' : undefined;
               const statusColor = threshold?.status === 'success' ? colors.success
                 : threshold?.status === 'warning' ? colors.warning : colors.danger;
 
@@ -545,7 +534,15 @@ export default function AllocationScreen() {
                       <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
                     </View>
                     <View style={s.bucketNameCol}>
-                      <Text style={s.bucketName}>{bucket.name}</Text>
+                      <View style={s.bucketNameRow}>
+                        <Text style={s.bucketName}>{bucket.name}</Text>
+                        {threshold && (
+                          <View style={[s.thresholdDot, { backgroundColor: statusColor }]} />
+                        )}
+                      </View>
+                      {threshold && (
+                        <Text style={[s.thresholdInline, { color: colors.textMuted }]}>{threshold.message}</Text>
+                      )}
                       <Text style={[s.bucketPct, { color: bucket.color }]}>{pct}% of income</Text>
                     </View>
                     <View style={[s.amountWrap, isFocused && { borderColor: bucket.color, borderWidth: 2 }]}>
@@ -578,17 +575,6 @@ export default function AllocationScreen() {
                       </TouchableOpacity>
                     )}
                   </View>
-
-                  <View style={s.bucketBarTrack}>
-                    <View style={[s.bucketBarFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: bucket.color }]} />
-                  </View>
-
-                  {threshold && (
-                    <View style={[s.thresholdRow, { backgroundColor: (colors as Record<string, string>)[threshold.status + 'Bg'] }]}>
-                      {statusIcon && <Ionicons name={statusIcon} size={12} color={statusColor} />}
-                      <Text style={[s.thresholdText, { color: statusColor }]}>{threshold.message}</Text>
-                    </View>
-                  )}
                 </View>
               );
             })}
@@ -623,13 +609,12 @@ function makeStyles(colors: any, isDark: boolean) {
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     headerTitle: { fontFamily: FONTS.heading, fontSize: 24, color: colors.textPrimary, marginBottom: 2 },
     headerSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary },
 
     saveBtn: {
-      backgroundColor: colors.gold, borderRadius: 10,
+      backgroundColor: colors.gold, borderRadius: 12,
       paddingHorizontal: 20, paddingVertical: 9, minWidth: 70, alignItems: 'center',
     },
     saveBtnDone: { backgroundColor: colors.emerald },
@@ -638,7 +623,7 @@ function makeStyles(colors: any, isDark: boolean) {
 
     summaryCard: {
       margin: 20, marginBottom: 8,
-      backgroundColor: colors.card, borderRadius: 18,
+      backgroundColor: colors.card, borderRadius: 24,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, padding: 18,
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 8, elevation: isDark ? 0 : 3,
@@ -647,21 +632,19 @@ function makeStyles(colors: any, isDark: boolean) {
     summaryLabel: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
     summaryTotal: { fontFamily: FONTS.display, fontSize: 36, color: colors.textPrimary, letterSpacing: -1 },
 
-    remainingPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
-    remainingText: { fontFamily: FONTS.semibold, fontSize: 12 },
+    remainingPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      borderRadius: 24, paddingHorizontal: 14, paddingVertical: 8,
+    },
+    remainingText: { fontFamily: FONTS.semibold, fontSize: 13 },
 
-    stackedBar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
-    stackedSeg: { height: 12, borderRadius: 2 },
+    stackedBar: { flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginBottom: 8 },
+    stackedSeg: { height: 14, borderRadius: 2 },
 
-    legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
+    legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
     legendDot: { width: 7, height: 7, borderRadius: 4 },
     legendLabel: { fontFamily: FONTS.regular, fontSize: 10, color: colors.textMuted },
-
-    progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 },
-    progressTrack: { flex: 1, height: 5, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
-    progressFill: { height: 5, borderRadius: 3 },
-    progressLabel: { fontFamily: FONTS.medium, fontSize: 12, minWidth: 36, textAlign: 'right' },
 
     autoBalanceBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
@@ -670,9 +653,10 @@ function makeStyles(colors: any, isDark: boolean) {
     autoBalanceText: { fontFamily: FONTS.medium, fontSize: 12, color: colors.gold },
 
     section: { paddingHorizontal: 20, marginTop: 16, marginBottom: 20 },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-    sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary, marginBottom: 4 },
-    sectionSubtitle: { fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted },
+    sectionHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
+    },
+    sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary },
     mt10: { marginTop: 10 },
 
     addBucketBtn: {
@@ -682,46 +666,42 @@ function makeStyles(colors: any, isDark: boolean) {
     addBucketTxt: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.gold },
 
     bucketCard: {
-      backgroundColor: colors.card, borderRadius: 14,
+      backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, padding: 14,
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 1 }, shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
-    bucketTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    bucketTop: { flexDirection: 'row', alignItems: 'center' },
     bucketIconWrap: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
     bucketNameCol: { flex: 1 },
-    bucketName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 },
+    bucketNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+    bucketName: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary },
+    thresholdDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 6 },
+    thresholdInline: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 2 },
     bucketPct: { fontFamily: FONTS.medium, fontSize: 11 },
 
     amountWrap: {
       flexDirection: 'row', alignItems: 'center',
-      backgroundColor: colors.surface, borderRadius: 10,
+      backgroundColor: colors.surface, borderRadius: 12,
       borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 10, paddingVertical: 10, minWidth: 110,
+      paddingHorizontal: 10, paddingVertical: 12, minWidth: 110,
     },
     currencySign: { fontFamily: FONTS.semibold, fontSize: 15, color: colors.textMuted, marginRight: 4 },
     amountInput: {
-      fontFamily: FONTS.semibold, fontSize: 16,
+      fontFamily: FONTS.semibold, fontSize: 17,
       flex: 1, minWidth: 70, textAlign: 'right',
       color: colors.textPrimary,
-      // Prevent invisible text on Android
       includeFontPadding: false,
       textAlignVertical: 'center',
     },
 
     removeBucketBtn: { marginLeft: 8 },
 
-    bucketBarTrack: { height: 5, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden', marginBottom: 10 },
-    bucketBarFill: { height: 5, borderRadius: 3 },
-
-    thresholdRow: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 6 },
-    thresholdText: { fontFamily: FONTS.medium, fontSize: 11, flex: 1 },
-
     addBucketCard: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
-      marginTop: 10, borderRadius: 14,
-      borderWidth: 1.5, borderColor: colors.gold + '44',
-      borderStyle: 'dashed', padding: 16, justifyContent: 'center',
+      marginTop: 10, borderRadius: 16,
+      borderWidth: 1.5, borderColor: colors.gold + '55',
+      borderStyle: 'dashed', padding: 18, justifyContent: 'center',
     },
     addBucketCardTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.gold },
   });

@@ -94,20 +94,23 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
   return (
     <View style={[gr.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
       <View style={gr.header}>
-        <View style={gr.divLine} />
+        <View style={[gr.divLine, { backgroundColor: colors.border }]} />
         <Text style={[gr.waecLabel, { color: colors.textMuted }]}>W·A·E·C  REPORT CARD</Text>
-        <View style={gr.divLine} />
+        <View style={[gr.divLine, { backgroundColor: colors.border }]} />
       </View>
       <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
 
-      <View style={[gr.ring, { borderColor: gradeColor }]}>
-        <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
-          <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+      {/* Outer depth ring */}
+      <View style={[gr.outerRing, { borderColor: gradeColor + '25' }]}>
+        <View style={[gr.ring, { borderColor: gradeColor }]}>
+          <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
+            <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+          </View>
         </View>
       </View>
 
       <Text style={[gr.scoreText, { color: colors.textSecondary }]}>
-        Score <Text style={[gr.scoreNum, { color: gradeColor }]}>{score}</Text>
+        Score <Text style={[gr.scoreNum, { color: gradeColor, fontFamily: FONTS.display }]}>{score}</Text>
         <Text style={{ color: colors.textMuted }}> / 100</Text>
       </Text>
       <Text style={[gr.period, { color: colors.textMuted }]}>
@@ -119,7 +122,7 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       </View>
 
       <TouchableOpacity
-        style={gr.shareRow}
+        style={[gr.shareRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() =>
           Share.share({ message: `My Steward financial grade for this month: ${grade} (${score}/100). Give every naira a purpose — stewardapp.com` })
         }
@@ -132,20 +135,30 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
 }
 
 const gr = StyleSheet.create({
-  card: { margin: 20, marginBottom: 8, borderRadius: 20, padding: 24, alignItems: 'center' },
+  card: { margin: 20, marginBottom: 8, borderRadius: 24, padding: 28, alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, width: '100%' },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  waecLabel: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 2 },
+  divLine: { flex: 1, height: 1 },
+  waecLabel: { fontFamily: FONTS.semibold, fontSize: 11, letterSpacing: 3 },
   subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
-  ring: { width: 140, height: 140, borderRadius: 70, borderWidth: 4, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  ringInner: { width: 124, height: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center' },
-  gradeLetter: { fontFamily: FONTS.display, fontSize: 56, lineHeight: 62, letterSpacing: -2 },
+  outerRing: {
+    width: 172, height: 172, borderRadius: 86,
+    borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  ring: { width: 160, height: 160, borderRadius: 80, borderWidth: 5, alignItems: 'center', justifyContent: 'center' },
+  ringInner: { width: 140, height: 140, borderRadius: 70, alignItems: 'center', justifyContent: 'center' },
+  gradeLetter: { fontFamily: FONTS.display, fontSize: 62, lineHeight: 68, letterSpacing: -2 },
   scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
-  scoreNum: { fontFamily: FONTS.display, fontSize: 22 },
+  scoreNum: { fontSize: 26 },
   period: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 16 },
   barTrack: { width: '100%', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
   barFill: { height: 6, borderRadius: 3 },
-  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  shareRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1,
+  },
   shareText: { fontFamily: FONTS.medium, fontSize: 12 },
 });
 
@@ -239,20 +252,16 @@ export default function ReportScreen() {
             <View style={s.dimensionsCard}>
               {data!.dimensions.map((dim, i) => {
                 const pct = Math.round((dim.score / dim.max) * 100);
-                const filled = Math.round((pct / 100) * 5);
                 return (
                   <View key={dim.label}>
                     {i > 0 && <View style={s.divider} />}
                     <View style={s.dimRow}>
                       <Text style={s.dimLabel}>{dim.label}</Text>
                       <View style={s.dimRight}>
-                        <View style={s.dotsRow}>
-                          {[1, 2, 3, 4, 5].map((d) => (
-                            <View
-                              key={d}
-                              style={[s.dot, d <= filled ? s.dotFilled : s.dotEmpty]}
-                            />
-                          ))}
+                        <View style={s.miniBarContainer}>
+                          <View style={s.miniBarTrack}>
+                            <View style={[s.miniBarFill, { width: `${pct}%` as any, backgroundColor: colors.gold }]} />
+                          </View>
                         </View>
                         <Text style={s.dimScore}>{dim.score}/{dim.max}</Text>
                       </View>
@@ -310,7 +319,7 @@ export default function ReportScreen() {
                 return (
                   <View key={alert.label}>
                     {i > 0 && <View style={s.divider} />}
-                    <View style={[s.alertRow, { backgroundColor: bg }]}>
+                    <View style={s.alertRow}>
                       <View style={[s.alertIconWrap, { backgroundColor: c[bgKey] }]}>
                         <Ionicons name={alert.icon} size={16} color={fg} />
                       </View>
@@ -338,10 +347,12 @@ export default function ReportScreen() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
             <View style={[s.advisoryCard, { backgroundColor: colors.card, borderColor: colors.goldDim }]}>
+              <View style={[s.advisoryStripe, { backgroundColor: colors.gold }]} />
               <View style={s.advisoryTop}>
                 <View style={[s.advisoryIconWrap, { backgroundColor: colors.goldBg }]}>
                   <Ionicons name="sparkles-outline" size={18} color={colors.gold} />
                 </View>
+                <Text style={[s.advisoryTitle, { color: colors.textPrimary }]}>Steward Advisory</Text>
                 <Text style={[s.advisoryMeta, { color: colors.textMuted }]}>
                   AI · {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
                 </Text>
@@ -397,12 +408,11 @@ function makeStyles(colors: any, isDark: boolean) {
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     headerTitle: { fontFamily: FONTS.heading, fontSize: 24, color: colors.textPrimary, marginBottom: 2 },
     headerSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary },
     refreshBtn: {
-      width: 40, height: 40, borderRadius: 10,
+      width: 40, height: 40, borderRadius: 14,
       backgroundColor: colors.goldBg, borderWidth: 1, borderColor: colors.goldDim,
       alignItems: 'center', justifyContent: 'center',
     },
@@ -413,24 +423,23 @@ function makeStyles(colors: any, isDark: boolean) {
     divider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
     dimensionsCard: {
-      backgroundColor: colors.card, borderRadius: 14,
+      backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
     },
-    dimRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
+    dimRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
     dimLabel: { fontFamily: FONTS.medium, fontSize: 13, color: colors.textSecondary, flex: 1 },
     dimRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    dotsRow: { flexDirection: 'row', gap: 4 },
-    dot: { width: 8, height: 8, borderRadius: 4 },
-    dotFilled: { backgroundColor: colors.gold },
-    dotEmpty: { backgroundColor: colors.border },
+    miniBarContainer: { width: 80 },
+    miniBarTrack: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+    miniBarFill: { height: 4, borderRadius: 2 },
     dimScore: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.textPrimary, minWidth: 36, textAlign: 'right' },
 
     alertsCard: {
-      backgroundColor: colors.card, borderRadius: 14,
+      backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
     },
-    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-    alertIconWrap: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14, gap: 10 },
+    alertIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     alertInfo: { flex: 1 },
     alertLabel: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary, marginBottom: 2 },
     alertThreshold: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
@@ -440,18 +449,20 @@ function makeStyles(colors: any, isDark: boolean) {
     alertValue: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary },
 
     advisoryCard: {
-      borderRadius: 14, borderWidth: 1, padding: 16,
+      borderRadius: 16, borderWidth: 1, padding: 20, overflow: 'hidden',
       shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
+    advisoryStripe: { height: 3, borderRadius: 2, marginBottom: 16 },
     advisoryTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     advisoryIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    advisoryTitle: { fontFamily: FONTS.semibold, fontSize: 14, flex: 1 },
     advisoryMeta: { fontFamily: FONTS.medium, fontSize: 12 },
     advisoryText: { fontFamily: FONTS.headingItalic, fontSize: 14, lineHeight: 22 },
 
     downloadBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 10, borderRadius: 14, paddingVertical: 16, marginBottom: 8,
+      gap: 10, borderRadius: 16, height: 54, marginBottom: 8,
     },
     downloadText: { fontFamily: FONTS.semibold, fontSize: 15 },
     downloadHint: { fontFamily: FONTS.regular, fontSize: 12, textAlign: 'center', marginTop: 4 },
