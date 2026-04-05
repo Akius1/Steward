@@ -28,6 +28,7 @@ export interface Allocation {
 export interface Milestone {
   id: string;
   user_id: string;
+  household_id?: string | null;
   name: string;
   icon: string;
   target_amount: number;
@@ -37,10 +38,36 @@ export interface Milestone {
   created_at: string;
 }
 
+export interface SinkingFund {
+  id: string;
+  user_id: string;
+  household_id: string | null;
+  name: string;
+  icon: string;
+  color: string;
+  target_amount: number;
+  saved_amount: number;
+  monthly_target: number;
+  created_at: string;
+}
+
+export interface Transaction {
+  id: string;
+  user_id: string;
+  household_id: string | null;
+  type: 'income' | 'expense';
+  amount: number;
+  category: string;
+  note: string | null;
+  date: string;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   name: string;
   currency: CurrencyCode;
+  subscription: 'free' | 'premium';
   created_at: string;
 }
 
@@ -84,6 +111,16 @@ export interface Database {
         Row: Milestone;
         Insert: Omit<Milestone, 'id' | 'created_at'>;
         Update: Partial<Omit<Milestone, 'id' | 'user_id' | 'created_at'>>;
+      };
+      sinking_funds: {
+        Row: SinkingFund;
+        Insert: Omit<SinkingFund, 'id' | 'created_at'>;
+        Update: Partial<Omit<SinkingFund, 'id' | 'user_id' | 'created_at'>>;
+      };
+      transactions: {
+        Row: Transaction;
+        Insert: Omit<Transaction, 'id' | 'created_at'>;
+        Update: Partial<Omit<Transaction, 'id' | 'user_id' | 'created_at'>>;
       };
       households: {
         Row: Household;
