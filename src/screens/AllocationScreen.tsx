@@ -11,8 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  Modal,
 } from 'react-native';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -69,12 +69,18 @@ function AddBucketModal({
 }) {
   const [name, setName] = useState('');
   const [pct, setPct] = useState('');
-  const pctRef = useRef<TextInput>(null);
-  const insets = useSafeAreaInsets();
-  const ms = makeModalStyles(colors, isDark);
+  const sheetRef = useRef<BottomSheetModal>(null);
+  const pctRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (visible) {
+      sheetRef.current?.present();
+    } else {
+      sheetRef.current?.dismiss();
+    }
+  }, [visible]);
 
   function handleAdd() {
-    Keyboard.dismiss();
     const trimmed = name.trim();
     if (!trimmed) { Alert.alert('Name required', 'Enter a name for your bucket.'); return; }
     if (existingNames.has(trimmed)) { Alert.alert('Duplicate', 'A bucket with that name already exists.'); return; }
@@ -86,68 +92,108 @@ function AddBucketModal({
     onClose();
   }
 
-  function handleClose() { Keyboard.dismiss(); onClose(); }
-
   const amount = totalIncome > 0 && !isNaN(parseFloat(pct)) ? Math.round(totalIncome * parseFloat(pct) / 100) : 0;
 
+  const inputStyle = {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontFamily: FONTS.medium,
+    fontSize: 15,
+    color: colors.textPrimary,
+    includeFontPadding: false,
+  };
+
+  const labelStyle = {
+    fontFamily: FONTS.semibold,
+    fontSize: 10,
+    color: colors.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+    marginBottom: 6,
+    marginTop: 12,
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <BottomSheetModal
+      ref={sheetRef}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
+      enableDynamicSizing={true}
+      backdropComponent={(props) => (
+        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+      )}
+      backgroundStyle={{ backgroundColor: colors.card, borderRadius: 28 }}
+      handleIndicatorStyle={{ backgroundColor: colors.border, width: 40 }}
+      onDismiss={onClose}
+    >
+      <BottomSheetScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
       >
-        <TouchableOpacity style={ms.overlay} activeOpacity={1} onPress={handleClose}>
-          <TouchableOpacity activeOpacity={1} style={[ms.sheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={ms.handle} />
-            <Text style={ms.title}>Add Custom Bucket</Text>
-            <Text style={ms.subtitle}>Create a personalised spending or saving category.</Text>
+        <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 4, marginTop: 8 }}>
+          Add Custom Bucket
+        </Text>
+        <Text style={{ fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 20 }}>
+          Create a personalised spending or saving category.
+        </Text>
 
-            <Text style={ms.label}>BUCKET NAME</Text>
-            <TextInput
-              style={ms.input}
-              placeholder="e.g. Car Maintenance"
-              placeholderTextColor={colors.textMuted}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              maxLength={40}
-              returnKeyType="next"
-              onSubmitEditing={() => pctRef.current?.focus()}
-              blurOnSubmit={false}
-            />
+        <Text style={labelStyle}>BUCKET NAME</Text>
+        <BottomSheetTextInput
+          style={inputStyle}
+          placeholder="e.g. Car Maintenance"
+          placeholderTextColor={colors.textMuted}
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          maxLength={40}
+          returnKeyType="next"
+          onSubmitEditing={() => pctRef.current?.focus()}
+          blurOnSubmit={false}
+        />
 
-            <Text style={ms.label}>PERCENTAGE OF INCOME (%)</Text>
-            <TextInput
-              ref={pctRef}
-              style={ms.input}
-              placeholder="e.g. 5"
-              placeholderTextColor={colors.textMuted}
-              value={pct}
-              onChangeText={setPct}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              onSubmitEditing={handleAdd}
-            />
+        <Text style={labelStyle}>PERCENTAGE OF INCOME (%)</Text>
+        <BottomSheetTextInput
+          ref={pctRef}
+          style={inputStyle}
+          placeholder="e.g. 5"
+          placeholderTextColor={colors.textMuted}
+          value={pct}
+          onChangeText={setPct}
+          keyboardType="decimal-pad"
+          returnKeyType="done"
+          onSubmitEditing={handleAdd}
+        />
 
-            {amount > 0 && (
-              <View style={ms.previewRow}>
-                <Ionicons name="calculator-outline" size={14} color={colors.gold} />
-                <Text style={ms.previewText}>
-                  That's {fmt(amount, 'NGN')} of your income
-                </Text>
-              </View>
-            )}
+        {amount > 0 && (
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            backgroundColor: colors.goldBg, borderRadius: 8,
+            paddingHorizontal: 10, paddingVertical: 8, marginTop: 10,
+          }}>
+            <Ionicons name="calculator-outline" size={14} color={colors.gold} />
+            <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: colors.gold }}>
+              That's {fmt(amount, 'NGN')} of your income
+            </Text>
+          </View>
+        )}
 
-            <TouchableOpacity style={ms.addBtn} onPress={handleAdd} activeOpacity={0.85}>
-              <Text style={ms.addBtnTxt}>Add Bucket</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={ms.cancelRow} onPress={handleClose}>
-              <Text style={ms.cancelTxt}>Cancel</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={{ backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 24 }}
+          onPress={handleAdd}
+          activeOpacity={0.85}
+        >
+          <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: isDark ? colors.bg : '#FFF' }}>Add Bucket</Text>
         </TouchableOpacity>
-      </KeyboardAvoidingView>
-    </Modal>
+        <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 14 }} onPress={onClose}>
+          <Text style={{ fontFamily: FONTS.medium, fontSize: 14, color: colors.textSecondary }}>Cancel</Text>
+        </TouchableOpacity>
+      </BottomSheetScrollView>
+    </BottomSheetModal>
   );
 }
 
@@ -566,38 +612,6 @@ export default function AllocationScreen() {
       />
     </SafeAreaView>
   );
-}
-
-// ─── Modal Styles ─────────────────────────────────────────────────────────────
-function makeModalStyles(colors: any, isDark: boolean) {
-  return StyleSheet.create({
-    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-    sheet: {
-      backgroundColor: colors.card,
-      borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      padding: 24,
-    },
-    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 20 },
-    title: { fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 4 },
-    subtitle: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary, marginBottom: 20, lineHeight: 20 },
-    label: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 12 },
-    input: {
-      backgroundColor: colors.surface, borderRadius: 12,
-      borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 14, paddingVertical: 13,
-      fontFamily: FONTS.regular, fontSize: 16, color: colors.textPrimary,
-    },
-    previewRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: colors.goldBg, borderRadius: 8,
-      paddingHorizontal: 10, paddingVertical: 8, marginTop: 10,
-    },
-    previewText: { fontFamily: FONTS.medium, fontSize: 13, color: colors.gold },
-    addBtn: { backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 24 },
-    addBtnTxt: { fontFamily: FONTS.semibold, fontSize: 15, color: isDark ? colors.bg : '#FFF' },
-    cancelRow: { alignItems: 'center', paddingVertical: 14 },
-    cancelTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.textSecondary },
-  });
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

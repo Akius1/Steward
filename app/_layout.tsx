@@ -4,6 +4,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import {
   Fraunces_900Black,
@@ -49,11 +51,15 @@ export default function RootLayout() {
   if (!loaded) return null;
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootLayoutNav />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
+          <BottomSheetModalProvider>
+            <RootLayoutNav />
+          </BottomSheetModalProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
