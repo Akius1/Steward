@@ -12,11 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
-import type { IncomeSource, Allocation } from '@/types/database';
+import { fmt } from '@/utils/currency';
+import type { IncomeSource, Allocation, Milestone } from '@/types/database';
+
+const MILESTONE_COLORS = ['#60A5FA','#10B97A','#C9943F','#A78BFA','#F472B6','#F59E0B','#34D399','#818CF8'];
 
 // ─── Grade Engine ─────────────────────────────────────────────────────────────
 function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
@@ -80,7 +84,7 @@ function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
 
 type GradeData = ReturnType<typeof calcGrade>;
 
-const fmt = (n: number) => '₦' + n.toLocaleString('en-NG');
+// fmt imported from utils/currency
 
 // ─── Components ───────────────────────────────────────────────────────────────
 function GradeRing({ grade, score, colors, isDark }: { grade: string; score: number; colors: any; isDark: boolean }) {
@@ -93,20 +97,23 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
   return (
     <View style={[gr.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
       <View style={gr.header}>
-        <View style={gr.divLine} />
+        <View style={[gr.divLine, { backgroundColor: colors.border }]} />
         <Text style={[gr.waecLabel, { color: colors.textMuted }]}>W·A·E·C  REPORT CARD</Text>
-        <View style={gr.divLine} />
+        <View style={[gr.divLine, { backgroundColor: colors.border }]} />
       </View>
       <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
 
-      <View style={[gr.ring, { borderColor: gradeColor }]}>
-        <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
-          <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+      {/* Grade Ring */}
+      <View style={[gr.outerRing, { borderColor: gradeColor + '28' }]}>
+        <View style={[gr.ring, { borderColor: gradeColor }]}>
+          <View style={[gr.ringInner, { backgroundColor: gradeColor + '18' }]}>
+            <Text style={[gr.gradeLetter, { color: gradeColor }]}>{grade}</Text>
+          </View>
         </View>
       </View>
 
       <Text style={[gr.scoreText, { color: colors.textSecondary }]}>
-        Score <Text style={[gr.scoreNum, { color: gradeColor }]}>{score}</Text>
+        Score <Text style={[gr.scoreNum, { color: gradeColor, fontFamily: FONTS.display }]}>{score}</Text>
         <Text style={{ color: colors.textMuted }}> / 100</Text>
       </Text>
       <Text style={[gr.period, { color: colors.textMuted }]}>
@@ -118,7 +125,7 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       </View>
 
       <TouchableOpacity
-        style={gr.shareRow}
+        style={[gr.shareRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() =>
           Share.share({ message: `My Steward financial grade for this month: ${grade} (${score}/100). Give every naira a purpose — stewardapp.com` })
         }
@@ -131,20 +138,29 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
 }
 
 const gr = StyleSheet.create({
-  card: { margin: 20, marginBottom: 8, borderRadius: 20, padding: 24, alignItems: 'center' },
+  card: { margin: 20, marginBottom: 8, borderRadius: 24, padding: 28, alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, width: '100%' },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  waecLabel: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 2 },
+  divLine: { flex: 1, height: 1 },
+  waecLabel: { fontFamily: FONTS.semibold, fontSize: 11, letterSpacing: 3 },
   subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
-  ring: { width: 140, height: 140, borderRadius: 70, borderWidth: 4, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  ringInner: { width: 124, height: 124, borderRadius: 62, alignItems: 'center', justifyContent: 'center' },
-  gradeLetter: { fontFamily: FONTS.display, fontSize: 56, lineHeight: 62, letterSpacing: -2 },
+  outerRing: {
+    width: 172, height: 172, borderRadius: 86,
+    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  ring: { width: 160, height: 160, borderRadius: 80, borderWidth: 8, alignItems: 'center', justifyContent: 'center' },
+  ringInner: { width: 136, height: 136, borderRadius: 68, alignItems: 'center', justifyContent: 'center' },
+  gradeLetter: { fontFamily: FONTS.display, fontSize: 62, lineHeight: 68, letterSpacing: -2 },
   scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
-  scoreNum: { fontFamily: FONTS.display, fontSize: 22 },
+  scoreNum: { fontSize: 26 },
   period: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 16 },
   barTrack: { width: '100%', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
   barFill: { height: 6, borderRadius: 3 },
-  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  shareRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1,
+  },
   shareText: { fontFamily: FONTS.medium, fontSize: 12 },
 });
 
@@ -166,10 +182,11 @@ function EmptyReport({ colors }: { colors: any }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReportScreen() {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, household, currency } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GradeData | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -180,16 +197,22 @@ export default function ReportScreen() {
     setLoading(true);
 
     const db = supabase as any;
-    const [{ data: sources }, { data: allocs }] = await Promise.all([
-      db.from('income_sources').select('*').eq('user_id', user.id),
-      db.from('allocations').select('*').eq('user_id', user.id).eq('month', month).eq('year', year),
-    ]);
+    const srcQ = household
+      ? db.from('income_sources').select('*').eq('household_id', household.id)
+      : db.from('income_sources').select('*').eq('user_id', user.id).is('household_id', null);
+    const allQ = household
+      ? db.from('allocations').select('*').eq('household_id', household.id).eq('month', month).eq('year', year)
+      : db.from('allocations').select('*').eq('user_id', user.id).is('household_id', null).eq('month', month).eq('year', year);
+    const mlQ = db.from('milestones').select('*').eq('user_id', user.id).order('created_at', { ascending: true }).limit(4);
+
+    const [{ data: sources }, { data: allocs }, { data: mls }] = await Promise.all([srcQ, allQ, mlQ]);
 
     if (sources && allocs) {
       setData(calcGrade(sources, allocs));
     }
+    if (mls) setMilestones(mls);
     setLoading(false);
-  }, [user, month, year]);
+  }, [user, household, month, year]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -235,20 +258,16 @@ export default function ReportScreen() {
             <View style={s.dimensionsCard}>
               {data!.dimensions.map((dim, i) => {
                 const pct = Math.round((dim.score / dim.max) * 100);
-                const filled = Math.round((pct / 100) * 5);
                 return (
                   <View key={dim.label}>
                     {i > 0 && <View style={s.divider} />}
                     <View style={s.dimRow}>
                       <Text style={s.dimLabel}>{dim.label}</Text>
                       <View style={s.dimRight}>
-                        <View style={s.dotsRow}>
-                          {[1, 2, 3, 4, 5].map((d) => (
-                            <View
-                              key={d}
-                              style={[s.dot, d <= filled ? s.dotFilled : s.dotEmpty]}
-                            />
-                          ))}
+                        <View style={s.miniBarContainer}>
+                          <View style={s.miniBarTrack}>
+                            <View style={[s.miniBarFill, { width: `${pct}%` as any, backgroundColor: colors.gold }]} />
+                          </View>
                         </View>
                         <Text style={s.dimScore}>{dim.score}/{dim.max}</Text>
                       </View>
@@ -306,7 +325,7 @@ export default function ReportScreen() {
                 return (
                   <View key={alert.label}>
                     {i > 0 && <View style={s.divider} />}
-                    <View style={[s.alertRow, { backgroundColor: bg }]}>
+                    <View style={[s.alertRow, { borderLeftColor: fg }]}>
                       <View style={[s.alertIconWrap, { backgroundColor: c[bgKey] }]}>
                         <Ionicons name={alert.icon} size={16} color={fg} />
                       </View>
@@ -330,25 +349,88 @@ export default function ReportScreen() {
             </View>
           </View>
 
+          {/* Milestone Countdown Cards */}
+          <View style={s.section}>
+            <View style={s.sectionHeaderRow}>
+              <Ionicons name="compass-outline" size={16} color={colors.gold} style={{ marginRight: 6 }} />
+              <Text style={s.sectionTitle}>Goal Tracker</Text>
+            </View>
+            {milestones.length === 0 ? (
+              <Text style={[s.emptyGoals, { color: colors.textMuted }]}>
+                No goals set yet — visit the Plan tab to add your first milestone.
+              </Text>
+            ) : (
+              <View style={s.alertsCard}>
+                {milestones.map((m, i) => {
+                  const color = MILESTONE_COLORS[i % MILESTONE_COLORS.length];
+                  const prog = m.target_amount > 0 ? Math.min(m.saved_amount / m.target_amount, 1) : 0;
+                  const remaining = Math.max(0, m.target_amount - m.saved_amount);
+                  const monthsLeft = m.monthly_saving > 0 ? Math.ceil(remaining / m.monthly_saving) : null;
+                  const required = m.deadline_months && m.deadline_months > 0
+                    ? remaining / m.deadline_months : null;
+                  const status =
+                    m.saved_amount >= m.target_amount ? { label: 'Completed', color: colors.emerald, bg: colors.emeraldBg } :
+                    !required ? { label: 'Active', color: colors.gold, bg: colors.goldBg } :
+                    m.monthly_saving >= required ? { label: 'On Track', color: colors.emerald, bg: colors.emeraldBg } :
+                    m.monthly_saving >= required * 0.8 ? { label: 'At Risk', color: colors.warning, bg: colors.warningBg } :
+                    { label: 'Behind', color: colors.danger, bg: colors.dangerBg };
+
+                  return (
+                    <View key={m.id}>
+                      {i > 0 && <View style={s.divider} />}
+                      <View style={s.milestoneRow}>
+                        <View style={[s.milestoneIconWrap, { backgroundColor: color + '22' }]}>
+                          <Ionicons name={(m.icon || 'flag-outline') as any} size={18} color={color} />
+                        </View>
+                        <View style={s.milestoneInfo}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={[s.milestoneName, { color: colors.textPrimary }]} numberOfLines={1}>{m.name}</Text>
+                            <View style={[s.milestoneBadge, { backgroundColor: status.bg }]}>
+                              <Text style={[s.milestoneBadgeText, { color: status.color }]}>{status.label}</Text>
+                            </View>
+                          </View>
+                          <View style={[s.milestoneBarTrack, { backgroundColor: colors.border }]}>
+                            <View style={[s.milestoneBarFill, { width: `${Math.round(prog * 100)}%` as any, backgroundColor: color }]} />
+                          </View>
+                          <Text style={[s.milestoneSub, { color: colors.textMuted }]}>
+                            {fmt(m.saved_amount, currency)} saved of {fmt(m.target_amount, currency)}
+                            {monthsLeft ? `  ·  ~${monthsLeft}mo left` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
           {/* AI Advisory */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
-            <View style={[s.advisoryCard, { backgroundColor: colors.card, borderColor: colors.goldDim }]}>
+            <LinearGradient
+              colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[s.advisoryCard, { borderColor: colors.goldDim }]}
+            >
+              <View style={[s.advisoryStripe, { backgroundColor: 'rgba(235,192,118,0.6)' }]} />
               <View style={s.advisoryTop}>
-                <View style={[s.advisoryIconWrap, { backgroundColor: colors.goldBg }]}>
-                  <Ionicons name="sparkles-outline" size={18} color={colors.gold} />
+                <View style={[s.advisoryIconWrap, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
+                  <Ionicons name="sparkles-outline" size={18} color="#ffdeaa" />
                 </View>
-                <Text style={[s.advisoryMeta, { color: colors.textMuted }]}>
+                <Text style={[s.advisoryTitle, { color: 'rgba(255,255,255,0.92)' }]}>Steward Advisory</Text>
+                <Text style={[s.advisoryMeta, { color: 'rgba(255,255,255,0.55)' }]}>
                   AI · {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
                 </Text>
               </View>
-              <Text style={[s.advisoryText, { color: colors.textSecondary }]}>
+              <Text style={[s.advisoryText, { color: 'rgba(255,255,255,0.82)' }]}>
                 {'"'}
                 {data!.savingsPct >= 20
                   ? `Your savings rate of ${data!.savingsPct.toFixed(0)}% is commendable — above the 20% benchmark. `
                   : `Your savings rate is ${data!.savingsPct.toFixed(0)}% — below the 20% target. Consider reallocating from entertainment to savings. `}
                 {data!.housingPct > 30
-                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome))} more monthly income for this to be comfortable. `
+                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome), currency)} more monthly income for this to be comfortable. `
                   : data!.housingPct > 28
                   ? `Housing is near the 30% threshold. Monitor this closely. `
                   : `Housing is within the safe 28–30% range. `}
@@ -357,20 +439,20 @@ export default function ReportScreen() {
                   : `Your emergency fund is being well-funded. Keep the momentum.`}
                 {'"'}
               </Text>
-            </View>
+            </LinearGradient>
           </View>
 
           {/* Download CTA */}
           <View style={s.section}>
             <TouchableOpacity
-              style={[s.downloadBtn, { backgroundColor: colors.gold }]}
+              style={[s.downloadBtn, { borderWidth: 1.5, borderColor: colors.gold }]}
               activeOpacity={0.85}
               onPress={() =>
                 Alert.alert('Coming Soon', 'PDF download will be available in the next update.')
               }
             >
-              <Ionicons name="document-text-outline" size={20} color={isDark ? colors.bg : '#FFF'} />
-              <Text style={[s.downloadText, { color: isDark ? colors.bg : '#FFF' }]}>
+              <Ionicons name="document-text-outline" size={20} color={colors.gold} />
+              <Text style={[s.downloadText, { color: colors.gold }]}>
                 Download Report PDF
               </Text>
             </TouchableOpacity>
@@ -393,40 +475,38 @@ function makeStyles(colors: any, isDark: boolean) {
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: 20, paddingTop: 14, paddingBottom: 14,
-      borderBottomWidth: 1, borderBottomColor: colors.border,
     },
     headerTitle: { fontFamily: FONTS.heading, fontSize: 24, color: colors.textPrimary, marginBottom: 2 },
     headerSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary },
     refreshBtn: {
-      width: 40, height: 40, borderRadius: 10,
+      width: 40, height: 40, borderRadius: 14,
       backgroundColor: colors.goldBg, borderWidth: 1, borderColor: colors.goldDim,
       alignItems: 'center', justifyContent: 'center',
     },
 
     section: { paddingHorizontal: 20, marginTop: 20, marginBottom: 4 },
     sectionTitle: { fontFamily: FONTS.semibold, fontSize: 16, color: colors.textPrimary, marginBottom: 10 },
-    sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
     divider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
     dimensionsCard: {
-      backgroundColor: colors.card, borderRadius: 14,
+      backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
     },
-    dimRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 13 },
+    dimRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14 },
     dimLabel: { fontFamily: FONTS.medium, fontSize: 13, color: colors.textSecondary, flex: 1 },
     dimRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    dotsRow: { flexDirection: 'row', gap: 4 },
-    dot: { width: 8, height: 8, borderRadius: 4 },
-    dotFilled: { backgroundColor: colors.gold },
-    dotEmpty: { backgroundColor: colors.border },
+    miniBarContainer: { width: 80 },
+    miniBarTrack: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+    miniBarFill: { height: 4, borderRadius: 2 },
     dimScore: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.textPrimary, minWidth: 36, textAlign: 'right' },
 
     alertsCard: {
-      backgroundColor: colors.card, borderRadius: 14,
+      backgroundColor: colors.card, borderRadius: 16,
       borderWidth: isDark ? 1 : 0, borderColor: colors.border, overflow: 'hidden',
     },
-    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-    alertIconWrap: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+    alertRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 14, gap: 10, borderLeftWidth: 3, borderLeftColor: 'transparent' },
+    alertIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     alertInfo: { flex: 1 },
     alertLabel: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary, marginBottom: 2 },
     alertThreshold: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted },
@@ -435,19 +515,32 @@ function makeStyles(colors: any, isDark: boolean) {
     statusText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.5 },
     alertValue: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary },
 
+    emptyGoals: { fontFamily: FONTS.regular, fontSize: 13, textAlign: 'center', paddingVertical: 16, fontStyle: 'italic' },
+    milestoneRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 14, paddingVertical: 14, gap: 10 },
+    milestoneIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    milestoneInfo: { flex: 1, minWidth: 0 },
+    milestoneName: { fontFamily: FONTS.semibold, fontSize: 13, flex: 1, marginRight: 8 },
+    milestoneBadge: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 },
+    milestoneBadgeText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.4 },
+    milestoneBarTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginBottom: 5 },
+    milestoneBarFill: { height: 4, borderRadius: 2 },
+    milestoneSub: { fontFamily: FONTS.regular, fontSize: 11 },
+
     advisoryCard: {
-      borderRadius: 14, borderWidth: 1, padding: 16,
+      borderRadius: 16, borderWidth: 1, padding: 20, overflow: 'hidden',
       shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
+    advisoryStripe: { height: 3, borderRadius: 2, marginBottom: 16 },
     advisoryTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     advisoryIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    advisoryTitle: { fontFamily: FONTS.semibold, fontSize: 14, flex: 1 },
     advisoryMeta: { fontFamily: FONTS.medium, fontSize: 12 },
     advisoryText: { fontFamily: FONTS.headingItalic, fontSize: 14, lineHeight: 22 },
 
     downloadBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 10, borderRadius: 14, paddingVertical: 16, marginBottom: 8,
+      gap: 10, borderRadius: 16, height: 54, marginBottom: 8,
     },
     downloadText: { fontFamily: FONTS.semibold, fontSize: 15 },
     downloadHint: { fontFamily: FONTS.regular, fontSize: 12, textAlign: 'center', marginTop: 4 },
