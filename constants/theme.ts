@@ -1,31 +1,31 @@
-// Steward Design System — Obsidian (dark) + Warm Parchment (light)
-// Colour tokens derived from the Steward Obsidian design language
+// Steward Design System — Royal Burgundy (dark) + Warm Rose (light)
+// Colour tokens derived from the Steward Royal Burgundy design language
 
-// ─── Dark Palette — "Obsidian" ────────────────────────────────────────────────
+// ─── Dark Palette — "Royal Burgundy" ─────────────────────────────────────────
 export const DARK_COLORS = {
-  bg:           '#121415',   // background
-  surface:      '#1a1c1d',   // surface-container-low
-  card:         '#1e2021',   // surface-container
-  cardElevated: '#282a2b',   // surface-container-high
-  border:       '#4e4639',   // outline-variant
-  borderLight:  '#9a8f80',   // outline
+  bg:           '#240c0c',   // deep burgundy background
+  surface:      '#1e0707',   // surface-container-lowest
+  card:         '#2e1413',   // surface-container-low
+  cardElevated: '#3f2221',   // surface-container-high
+  border:       '#554240',   // outline-variant
+  borderLight:  '#a38b89',   // outline
 
-  gold:         '#ebc076',   // primary
-  goldLight:    '#ffdeaa',   // primary-fixed
-  goldDim:      '#b18b46',   // primary-container
-  goldBg:       'rgba(235,192,118,0.10)',
-  goldBgStrong: 'rgba(235,192,118,0.20)',
+  gold:         '#e9c349',   // primary
+  goldLight:    '#ffe088',   // primary-fixed
+  goldDim:      '#aa890a',   // on-primary-container
+  goldBg:       'rgba(233,195,73,0.10)',
+  goldBgStrong: 'rgba(233,195,73,0.20)',
 
   emerald:      '#10B97A',
   emeraldLight: '#34D399',
   emeraldBg:    'rgba(16,185,122,0.12)',
 
-  textPrimary:   '#e2e2e3',  // on-surface
-  textSecondary: '#d2c5b4',  // on-surface-variant
-  textMuted:     '#9a8f80',  // outline
+  textPrimary:   '#ffdad8',  // on-surface (warm rose-white)
+  textSecondary: '#dbc1be',  // on-surface-variant
+  textMuted:     '#a38b89',  // outline
 
-  secondary:  '#b9cbc1',
-  tertiary:   '#e3bfb2',
+  secondary:  '#ffb3ac',     // secondary
+  tertiary:   '#c8c8b0',     // tertiary
 
   success:    '#22C55E',
   successBg:  'rgba(34,197,94,0.12)',
@@ -44,31 +44,31 @@ export const DARK_COLORS = {
   overlay:    'rgba(0,0,0,0.75)',
 } as const;
 
-// ─── Light Palette — "Warm Parchment" ────────────────────────────────────────
+// ─── Light Palette — "Warm Rose" ─────────────────────────────────────────────
 export const LIGHT_COLORS = {
-  bg:           '#fdf9f3',   // background
-  surface:      '#f7f3ed',   // surface-container-low
-  card:         '#ffffff',   // surface-container-lowest
-  cardElevated: '#ebe8e2',   // surface-container-high
-  border:       '#d2c5b4',   // outline-variant
-  borderLight:  '#e6e2dc',   // surface-container-highest
+  bg:           '#ffdad6',   // warm rose parchment background
+  surface:      '#ffdad8',   // on-surface (as surface in light)
+  card:         '#ffffff',   // pure white card
+  cardElevated: '#f7eae8',   // slightly tinted elevated card
+  border:       '#dbc1be',   // on-surface-variant as border
+  borderLight:  '#ede0de',   // lighter border
 
-  gold:         '#775616',   // primary
-  goldLight:    '#ebc076',   // inverse-primary / primary-fixed-dim
-  goldDim:      '#d2c5b4',   // outline-variant as muted gold
-  goldBg:       'rgba(119,86,22,0.08)',
-  goldBgStrong: 'rgba(119,86,22,0.14)',
+  gold:         '#735c00',   // inverse-primary (dark gold on light bg)
+  goldLight:    '#e9c349',   // primary-fixed-dim
+  goldDim:      '#574500',   // on-primary-fixed-variant
+  goldBg:       'rgba(115,92,0,0.08)',
+  goldBgStrong: 'rgba(115,92,0,0.15)',
 
   emerald:      '#0A9660',
   emeraldLight: '#10B97A',
   emeraldBg:    'rgba(10,150,96,0.10)',
 
-  textPrimary:   '#1c1c18',  // on-surface
-  textSecondary: '#4e4639',  // on-surface-variant
-  textMuted:     '#807667',  // outline
+  textPrimary:   '#240c0c',  // surface / near-black burgundy
+  textSecondary: '#462827',  // inverse-on-surface
+  textMuted:     '#7b2d29',  // on-secondary-fixed-variant
 
-  secondary:  '#596060',
-  tertiary:   '#625b51',
+  secondary:  '#7e2f2b',     // secondary-container
+  tertiary:   '#474836',     // on-tertiary-fixed-variant
 
   success:    '#16A34A',
   successBg:  'rgba(22,163,74,0.10)',
@@ -83,8 +83,8 @@ export const LIGHT_COLORS = {
   pink:       '#BE185D',
   pinkBg:     'rgba(190,24,93,0.10)',
 
-  shadow:     'rgba(28,28,24,0.10)',
-  overlay:    'rgba(28,28,24,0.50)',
+  shadow:     'rgba(36,12,12,0.12)',
+  overlay:    'rgba(36,12,12,0.50)',
 } as const;
 
 export const COLORS = DARK_COLORS;
@@ -136,14 +136,14 @@ export const SHADOWS = {
 
 // ─── Allocation bucket palette ────────────────────────────────────────────────
 export const BUCKET_COLORS = [
-  '#ebc076', // Gold      — Rent/Housing
+  '#e9c349', // Gold      — Rent/Housing  (updated to Royal Burgundy primary)
   '#10B97A', // Emerald   — Food
   '#60A5FA', // Blue      — Savings
   '#A78BFA', // Purple    — Investments
   '#F472B6', // Pink      — Entertainment
   '#F59E0B', // Amber     — Emergency
   '#34D399', // Mint      — Giving
-  '#b9cbc1', // Sage      — Covenant Practice
+  '#c8c8b0', // Sage      — Covenant Practice
 ] as const;
 
 export const CUSTOM_BUCKET_COLORS = [

@@ -159,14 +159,14 @@ export default function LoginScreen() {
 
   // ── Theme-aware gradient stops ────────────────────────────────────────────────
   const ctaGradient: [string, string] = isDark
-    ? ['#ebc076', '#b18b46']
-    : ['#c89b3c', '#8a5f18'];
-  const ctaTextColor = isDark ? '#271900' : '#fff8ee';
+    ? ['#e9c349', '#aa890a']
+    : ['#aa890a', '#735c00'];
+  const ctaTextColor = isDark ? '#3c2f00' : '#ffe088';
 
   // ── Theme-aware glow colours ──────────────────────────────────────────────────
-  const glowGold   = isDark ? 'rgba(235,192,118,0.07)' : 'rgba(235,192,118,0.22)';
-  const glowSage   = isDark ? 'rgba(185,203,193,0.04)' : 'rgba(119,86,22,0.06)';
-  const glowAccent = isDark ? 'rgba(235,192,118,0.04)' : 'rgba(235,192,118,0.14)';
+  const glowGold   = isDark ? 'rgba(233,195,73,0.09)'  : 'rgba(233,195,73,0.20)';
+  const glowSage   = isDark ? 'rgba(93,23,21,0.18)'    : 'rgba(255,218,216,0.60)';
+  const glowAccent = isDark ? 'rgba(233,195,73,0.05)'  : 'rgba(233,195,73,0.12)';
 
   // ── Ring border tokens ────────────────────────────────────────────────────────
   const r1Color = colors.gold + (isDark ? '2a' : '35');
