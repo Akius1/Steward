@@ -12,9 +12,9 @@ import { useRouter } from 'expo-router';
 import {
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetTextInput,
   BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
+import { BottomSheetInput } from '@/utils/BottomSheetInput';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -146,7 +146,7 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, h
 
         {/* Source name */}
         <Text style={ms.label}>SOURCE NAME</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="e.g. GTBank Salary"
           placeholderTextColor={colors.textMuted}
@@ -185,7 +185,7 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, h
           marginBottom: 24,
         }}>
           <Text style={{ fontFamily: FONTS.heading, fontSize: 36, color: colors.gold, marginRight: 8 }}>{sym}</Text>
-          <BottomSheetTextInput
+          <BottomSheetInput
             ref={amountRef}
             style={{
               flex: 1,
@@ -211,7 +211,7 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, h
 
         {/* Description */}
         <Text style={ms.label}>DESCRIPTION (OPTIONAL)</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           ref={subtitleRef}
           style={inputStyle}
           placeholder="e.g. Fixed monthly income"
@@ -489,7 +489,7 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
               Create a shared budget space for you and your partner or family.
             </Text>
             <Text style={ms.label}>HOUSEHOLD NAME</Text>
-            <BottomSheetTextInput
+            <BottomSheetInput
               style={inputStyle}
               placeholder="e.g. The Stewards"
               placeholderTextColor={colors.textMuted}
@@ -516,7 +516,7 @@ function HouseholdModal({ visible, onClose, colors, isDark, household, members, 
               Enter the 6-character invite code from your partner or family member.
             </Text>
             <Text style={ms.label}>INVITE CODE</Text>
-            <BottomSheetTextInput
+            <BottomSheetInput
               style={[inputStyle, { letterSpacing: 4, fontSize: 20, textAlign: 'center', fontFamily: FONTS.heading }]}
               placeholder="XXXXXX"
               placeholderTextColor={colors.textMuted}
