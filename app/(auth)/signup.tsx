@@ -21,6 +21,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/utils/supabase';
+import { signInWithGoogle, signInWithApple } from '@/utils/oAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
 
@@ -34,8 +35,10 @@ export default function SignupScreen() {
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]         = useState(false);
-  const [resending, setResending]     = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading]   = useState(false);
+  const [resending, setResending]       = useState(false);
   const [confirmed, setConfirmed]     = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
@@ -163,6 +166,30 @@ export default function SignupScreen() {
       setConfirmed(true);
     }
     // If session exists, AuthContext handles redirect automatically
+  }
+
+  async function handleGoogle() {
+    try {
+      setGoogleLoading(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await signInWithGoogle();
+    } catch (e: any) {
+      Alert.alert('Google Sign-In Failed', e?.message ?? 'Something went wrong.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
+
+  async function handleApple() {
+    try {
+      setAppleLoading(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert('Apple Sign-In Failed', e?.message ?? 'Something went wrong.');
+    } finally {
+      setAppleLoading(false);
+    }
   }
 
   async function handleResend() {
@@ -758,16 +785,38 @@ export default function SignupScreen() {
                 <View style={s.dividerLine} />
               </View>
 
-              {/* ── Social placeholders ── */}
+              {/* ── Social buttons ── */}
               <View style={s.socialRow}>
-                <View style={s.socialBtn}>
-                  <Ionicons name="logo-apple" size={16} color={colors.textMuted} />
-                  <Text style={s.socialBtnText}>Apple</Text>
-                </View>
-                <View style={s.socialBtn}>
-                  <Ionicons name="logo-google" size={16} color={colors.textMuted} />
-                  <Text style={s.socialBtnText}>Google</Text>
-                </View>
+                <TouchableOpacity
+                  style={s.socialBtn}
+                  onPress={handleApple}
+                  disabled={appleLoading || googleLoading || loading}
+                  activeOpacity={0.75}
+                >
+                  {appleLoading ? (
+                    <ActivityIndicator size="small" color={colors.textMuted} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={16} color={colors.textPrimary} />
+                      <Text style={s.socialBtnText}>Apple</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.socialBtn}
+                  onPress={handleGoogle}
+                  disabled={googleLoading || appleLoading || loading}
+                  activeOpacity={0.75}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator size="small" color={colors.textMuted} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={16} color={colors.textPrimary} />
+                      <Text style={s.socialBtnText}>Google</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
 
               {/* ── Footer ── */}
