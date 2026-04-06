@@ -12,9 +12,9 @@ import {
 import {
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetTextInput,
   BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
+import { BottomSheetInput } from '@/utils/BottomSheetInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -369,7 +369,7 @@ function AddTransactionSheet({
 
         {/* Large amount input */}
         <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <BottomSheetTextInput
+          <BottomSheetInput
             style={{
               fontFamily: FONTS.display,
               fontSize: 48,
@@ -468,7 +468,7 @@ function AddTransactionSheet({
         >
           Note
         </Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputBase}
           placeholder="Add a note (optional)"
           placeholderTextColor={colors.textMuted}
@@ -525,7 +525,7 @@ function AddTransactionSheet({
         </View>
 
         {dateChoice === 'other' && (
-          <BottomSheetTextInput
+          <BottomSheetInput
             style={{ ...inputBase, marginBottom: 24 }}
             placeholder="dd/mm/yyyy"
             placeholderTextColor={colors.textMuted}

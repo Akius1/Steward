@@ -12,9 +12,9 @@ import {
 import {
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetTextInput,
   BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
+import { BottomSheetInput } from '@/utils/BottomSheetInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -234,7 +234,7 @@ function AddMilestoneSheet({
         </Text>
 
         <Text style={labelStyle}>GOAL NAME</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="e.g. Buy a car"
           placeholderTextColor={colors.textMuted}
@@ -274,7 +274,7 @@ function AddMilestoneSheet({
         </ScrollView>
 
         <Text style={labelStyle}>TARGET AMOUNT</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
@@ -285,7 +285,7 @@ function AddMilestoneSheet({
         />
 
         <Text style={labelStyle}>ALREADY SAVED</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
@@ -296,7 +296,7 @@ function AddMilestoneSheet({
         />
 
         <Text style={labelStyle}>MONTHLY CONTRIBUTION</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
@@ -307,7 +307,7 @@ function AddMilestoneSheet({
         />
 
         <Text style={labelStyle}>DEADLINE (MONTHS) — OPTIONAL</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="e.g. 24"
           placeholderTextColor={colors.textMuted}
@@ -428,7 +428,7 @@ function EditSavedSheet({ visible, milestone, onClose, onSave, colors, isDark, c
             </View>
 
             <Text style={sharedLabelStyle(colors)}>AMOUNT SAVED SO FAR</Text>
-            <BottomSheetTextInput
+            <BottomSheetInput
               style={sharedInputStyle(colors)}
               placeholder="0"
               placeholderTextColor={colors.textMuted}
@@ -598,7 +598,7 @@ function AddFundSheet({ visible, onClose, onAdd, colors, isDark, currency, editF
         )}
 
         <Text style={labelStyle}>FUND NAME</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="e.g. Annual Rent"
           placeholderTextColor={colors.textMuted}
@@ -652,7 +652,7 @@ function AddFundSheet({ visible, onClose, onAdd, colors, isDark, currency, editF
         </View>
 
         <Text style={labelStyle}>ANNUAL TARGET AMOUNT</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
@@ -663,7 +663,7 @@ function AddFundSheet({ visible, onClose, onAdd, colors, isDark, currency, editF
         />
 
         <Text style={labelStyle}>MONTHLY CONTRIBUTION</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
@@ -781,7 +781,7 @@ function LogContributionSheet({ visible, fund, onClose, onLog, colors, isDark, c
             </View>
 
             <Text style={sharedLabelStyle(colors)}>AMOUNT TO ADD</Text>
-            <BottomSheetTextInput
+            <BottomSheetInput
               style={sharedInputStyle(colors)}
               placeholder="0"
               placeholderTextColor={colors.textMuted}

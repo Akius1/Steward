@@ -10,7 +10,8 @@ import {
   Alert,
   Keyboard,
 } from 'react-native';
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetInput } from '@/utils/BottomSheetInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -141,7 +142,7 @@ function AddBucketModal({
         </Text>
 
         <Text style={labelStyle}>BUCKET NAME</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           style={inputStyle}
           placeholder="e.g. Car Maintenance"
           placeholderTextColor={colors.textMuted}
@@ -155,7 +156,7 @@ function AddBucketModal({
         />
 
         <Text style={labelStyle}>PERCENTAGE OF INCOME (%)</Text>
-        <BottomSheetTextInput
+        <BottomSheetInput
           ref={pctRef}
           style={inputStyle}
           placeholder="e.g. 5"
