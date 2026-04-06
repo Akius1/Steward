@@ -15,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -32,7 +33,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [confirmed, setConfirmed] = useState(false); // show "check email" screen
+  const [confirmed, setConfirmed] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [pwFocused, setPwFocused] = useState(false);
@@ -61,7 +62,6 @@ export default function SignupScreen() {
       Alert.alert('Sign Up Failed', error.message);
       return;
     }
-    // If email confirmation is required, session is null but user is created
     if (data.session) {
       // Email confirmation disabled — session is live, AuthContext will redirect
     } else {
@@ -81,39 +81,53 @@ export default function SignupScreen() {
     }
   }
 
-  // ─── Styles ────────────────────────────────────────────────────────────────
+  // Password strength
+  const pwStrength =
+    password.length === 0 ? 0 :
+    password.length < 6   ? 1 :
+    password.length < 10  ? 2 :
+    /[A-Z]/.test(password) && /[0-9]/.test(password) ? 4 : 3;
+
+  const strengthColors = [
+    colors.border,
+    colors.danger,
+    colors.warning,
+    colors.gold,
+    colors.success,
+  ];
+
   const s = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
+    safe: { flex: 1, backgroundColor: '#121415' },
     kav: { flex: 1 },
     scroll: { flexGrow: 1 },
 
+    // ── Ambient glow ──────────────────────────────────────
+    glowTopLeft: {
+      position: 'absolute',
+      width: 260,
+      height: 260,
+      borderRadius: 130,
+      backgroundColor: 'rgba(235,192,118,0.06)',
+      top: 0,
+      left: 0,
+      transform: [{ translateX: -80 }, { translateY: -80 }],
+    },
+    glowBottomRight: {
+      position: 'absolute',
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      backgroundColor: 'rgba(185,203,193,0.04)',
+      bottom: 0,
+      right: 0,
+      transform: [{ translateX: 70 }, { translateY: 70 }],
+    },
+
+    // ── Decorative header ────────────────────────────────
     deco: {
-      height: SCREEN_H * 0.28,
+      height: SCREEN_H * 0.35,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    ring: {
-      position: 'absolute',
-      borderRadius: 9999,
-      borderWidth: 1,
-    },
-    r1: { width: 160, height: 160, borderColor: colors.emerald + '20' },
-    r2: { width: 280, height: 280, borderColor: colors.emerald + '12' },
-    r3: { width: 400, height: 400, borderColor: colors.gold + '08' },
-    wordmark: {
-      fontFamily: FONTS.display,
-      fontSize: 56,
-      color: colors.gold,
-      letterSpacing: -2,
-      zIndex: 2,
-    },
-    tagline: {
-      fontFamily: FONTS.headingItalic,
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginTop: 6,
-      zIndex: 2,
-      fontStyle: 'italic',
     },
     themeBtn: {
       position: 'absolute',
@@ -126,53 +140,94 @@ export default function SignupScreen() {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    ring: {
+      position: 'absolute',
+      borderRadius: 9999,
+      borderWidth: 1,
+    },
+    r1: { width: 160, height: 160, borderColor: colors.emerald + '20' },
+    r2: { width: 280, height: 280, borderColor: colors.emerald + '12' },
+    r3: { width: 400, height: 400, borderColor: colors.gold + '08' },
+    wordmark: {
+      fontFamily: FONTS.semibold,
+      fontSize: 22,
+      color: colors.gold,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      zIndex: 2,
+    },
+    vaultHeading: {
+      fontFamily: FONTS.headingItalic,
+      fontSize: 36,
+      color: colors.textPrimary,
+      marginTop: 12,
+      textAlign: 'center',
+      zIndex: 2,
+    },
+    tagline: {
+      fontFamily: FONTS.regular,
+      fontSize: 13,
+      color: colors.textMuted,
+      marginTop: 6,
+      zIndex: 2,
+      textAlign: 'center',
+    },
 
+    // ── Tab switcher ─────────────────────────────────────
+    tabRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 28,
+      gap: 32,
+      marginBottom: 32,
+    },
+    tabActiveText: {
+      fontFamily: FONTS.heading,
+      fontSize: 20,
+      color: colors.textPrimary,
+    },
+    tabActiveUnderline: {
+      height: 2,
+      backgroundColor: colors.gold,
+      borderRadius: 1,
+      marginTop: 6,
+    },
+    tabInactiveText: {
+      fontFamily: FONTS.heading,
+      fontSize: 20,
+      color: colors.textMuted,
+      opacity: 0.45,
+    },
+
+    // ── Card ─────────────────────────────────────────────
     card: {
       backgroundColor: colors.card,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,
-      borderWidth: isDark ? 1 : 0,
+      borderWidth: 1,
       borderColor: colors.border,
+      borderBottomWidth: 0,
       paddingHorizontal: 28,
-      paddingTop: 32,
-      paddingBottom: 40,
+      paddingTop: 36,
+      paddingBottom: 48,
       flex: 1,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: isDark ? 0 : 0.08,
-      shadowRadius: 12,
-      elevation: isDark ? 0 : 4,
-    },
-    cardTitle: {
-      fontFamily: FONTS.display,
-      fontSize: 30,
-      color: colors.textPrimary,
-      marginBottom: 4,
-    },
-    cardSubtitle: {
-      fontFamily: FONTS.regular,
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 32,
     },
 
-    // ── Input fields ────────────────────────────────────
+    // ── Field label ───────────────────────────────────────
     fieldLabel: {
       fontFamily: FONTS.medium,
-      fontSize: 11,
+      fontSize: 10,
       color: colors.textMuted,
-      letterSpacing: 0.8,
+      letterSpacing: 1.5,
       textTransform: 'uppercase',
-      marginBottom: 6,
+      marginBottom: 10,
     },
-    fieldWrap: {
+
+    // ── Bottom-border field ───────────────────────────────
+    fieldRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: 14,
-      borderWidth: 1.5,
-      paddingHorizontal: 16,
-      paddingVertical: 15,
-      marginBottom: 20,
+      paddingBottom: 14,
+      marginBottom: 28,
       gap: 12,
     },
     fieldInput: {
@@ -183,52 +238,64 @@ export default function SignupScreen() {
       paddingVertical: 0,
     },
 
-    strengthRow: { flexDirection: 'row', gap: 4, marginTop: -12, marginBottom: 20 },
+    // ── Strength bars ─────────────────────────────────────
+    strengthRow: { flexDirection: 'row', gap: 4, marginTop: -18, marginBottom: 22 },
     strengthBar: { flex: 1, height: 3, borderRadius: 2 },
 
-    btn: {
-      backgroundColor: colors.gold,
-      borderRadius: 16,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 8,
-      marginBottom: 20,
-      borderTopWidth: 1,
-      borderTopColor: 'rgba(255,255,255,0.15)',
-    },
-    btnText: {
-      fontFamily: FONTS.semibold,
-      fontSize: 15,
-      color: isDark ? colors.bg : '#FFFFFF',
-    },
-    loginRow: {
+    // ── Divider ───────────────────────────────────────────
+    dividerRow: {
       flexDirection: 'row',
-      justifyContent: 'center',
       alignItems: 'center',
-      gap: 4,
+      marginVertical: 28,
     },
-    loginHint: {
-      fontFamily: FONTS.regular,
-      fontSize: 13,
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      fontFamily: FONTS.medium,
+      fontSize: 10,
+      color: colors.textMuted,
+      letterSpacing: 3,
+      opacity: 0.5,
+      marginHorizontal: 8,
+    },
+
+    // ── Social placeholder buttons ────────────────────────
+    socialRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    socialBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    socialBtnText: {
+      fontFamily: FONTS.semibold,
+      fontSize: 11,
+      letterSpacing: 2,
       color: colors.textMuted,
     },
-    loginLink: {
-      fontFamily: FONTS.semibold,
-      fontSize: 13,
-      color: colors.gold,
-    },
-    termsText: {
+
+    // ── Footer ────────────────────────────────────────────
+    footer: {
       fontFamily: FONTS.regular,
-      fontSize: 11,
+      fontSize: 10,
       color: colors.textMuted,
       textAlign: 'center',
-      marginTop: 12,
+      marginTop: 36,
+      letterSpacing: 0.5,
+      opacity: 0.5,
       lineHeight: 16,
     },
-    termsLink: { color: colors.gold },
 
-    // ── Confirmation screen ──────────────────────────────────
+    // ── Confirmation screen ───────────────────────────────
     confirmWrap: {
       flex: 1,
       alignItems: 'center',
@@ -244,15 +311,15 @@ export default function SignupScreen() {
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 28,
-      borderWidth: 1,
-      borderColor: colors.gold + '30',
+      borderWidth: 1.5,
+      borderColor: colors.gold + '40',
     },
     confirmTitle: {
-      fontFamily: FONTS.display,
-      fontSize: 26,
+      fontFamily: FONTS.headingItalic,
+      fontSize: 32,
       color: colors.textPrimary,
       textAlign: 'center',
-      marginBottom: 12,
+      marginBottom: 16,
     },
     confirmBody: {
       fontFamily: FONTS.regular,
@@ -286,8 +353,9 @@ export default function SignupScreen() {
     },
     resendText: {
       fontFamily: FONTS.semibold,
-      fontSize: 14,
+      fontSize: 13,
       color: colors.gold,
+      letterSpacing: 1,
     },
     backBtn: {
       height: 50,
@@ -301,26 +369,18 @@ export default function SignupScreen() {
     },
   });
 
-  // Password strength
-  const pwStrength =
-    password.length === 0 ? 0 :
-    password.length < 6   ? 1 :
-    password.length < 10  ? 2 :
-    /[A-Z]/.test(password) && /[0-9]/.test(password) ? 4 : 3;
-
-  const strengthColors = [
-    colors.border,
-    colors.danger,
-    colors.warning,
-    colors.gold,
-    colors.success,
-  ];
-
-  // ─── Confirmation pending screen ──────────────────────────────────────────
+  // ── Confirmation pending screen ─────────────────────────────────────────────
   if (confirmed) {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <StatusBar style="light" />
+
+        {/* Ambient glow background */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <View style={s.glowTopLeft} />
+          <View style={s.glowBottomRight} />
+        </View>
+
         <View style={s.deco}>
           <TouchableOpacity style={s.themeBtn} onPress={toggleColorMode}>
             <Ionicons
@@ -341,7 +401,7 @@ export default function SignupScreen() {
             <Ionicons name="mail-outline" size={40} color={colors.gold} />
           </View>
 
-          <Text style={s.confirmTitle}>Check your inbox</Text>
+          <Text style={s.confirmTitle}>Check your inbox.</Text>
           <Text style={s.confirmBody}>
             We sent a confirmation link to{'\n'}
             <Text style={s.confirmEmail}>{email.trim()}</Text>
@@ -356,13 +416,14 @@ export default function SignupScreen() {
             onPress={handleResend}
             disabled={resending}
           >
-            {resending
-              ? <ActivityIndicator color={colors.gold} />
-              : <Text style={s.resendText}>Resend confirmation email</Text>
-            }
+            {resending ? (
+              <ActivityIndicator color={colors.gold} />
+            ) : (
+              <Text style={s.resendText}>RESEND CONFIRMATION</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.backBtn} onPress={() => router.replace('/(auth)/login')}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.replace('/(auth)/login' as any)}>
             <Text style={s.backText}>Back to Sign In</Text>
           </TouchableOpacity>
         </View>
@@ -370,16 +431,24 @@ export default function SignupScreen() {
     );
   }
 
-  // ─── Signup form ──────────────────────────────────────────────────────────
+  // ── Signup form ─────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
+
+      {/* Ambient glow background */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={s.glowTopLeft} />
+        <View style={s.glowBottomRight} />
+      </View>
+
       <KeyboardAvoidingView
         style={s.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-          {/* ── Deco ─────────────────────────────────────── */}
+
+          {/* Wordmark section */}
           <View style={s.deco}>
             <TouchableOpacity style={s.themeBtn} onPress={toggleColorMode}>
               <Ionicons
@@ -392,22 +461,32 @@ export default function SignupScreen() {
             <View style={[s.ring, s.r2]} />
             <View style={[s.ring, s.r1]} />
             <Text style={s.wordmark}>Steward</Text>
+            <Text style={s.vaultHeading}>Join the House.</Text>
             <Text style={s.tagline}>Give every naira a purpose.</Text>
           </View>
 
-          {/* ── Card ─────────────────────────────────────── */}
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Create account</Text>
-            <Text style={s.cardSubtitle}>Free forever · No bank link required</Text>
+          {/* Tab switcher */}
+          <View style={s.tabRow}>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/login' as any)}>
+              <Text style={s.tabInactiveText}>Login</Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={s.tabActiveText}>Join the House</Text>
+              <View style={s.tabActiveUnderline} />
+            </View>
+          </View>
 
-            {/* Name */}
-            <Text style={s.fieldLabel}>Full name</Text>
+          {/* Form card */}
+          <View style={s.card}>
+
+            {/* Full Name field */}
+            <Text style={s.fieldLabel}>Full Name</Text>
             <View
               style={[
-                s.fieldWrap,
+                s.fieldRow,
                 {
-                  borderColor: nameFocused ? colors.gold : colors.border,
-                  backgroundColor: nameFocused ? colors.goldBg : colors.surface,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: nameFocused ? colors.gold : colors.border,
                 },
               ]}
             >
@@ -432,14 +511,14 @@ export default function SignupScreen() {
               />
             </View>
 
-            {/* Email */}
-            <Text style={s.fieldLabel}>Email address</Text>
+            {/* Email field */}
+            <Text style={s.fieldLabel}>Identity (Email)</Text>
             <View
               style={[
-                s.fieldWrap,
+                s.fieldRow,
                 {
-                  borderColor: emailFocused ? colors.gold : colors.border,
-                  backgroundColor: emailFocused ? colors.goldBg : colors.surface,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: emailFocused ? colors.gold : colors.border,
                 },
               ]}
             >
@@ -466,14 +545,14 @@ export default function SignupScreen() {
               />
             </View>
 
-            {/* Password */}
-            <Text style={s.fieldLabel}>Password</Text>
+            {/* Password field */}
+            <Text style={s.fieldLabel}>Passcode</Text>
             <View
               style={[
-                s.fieldWrap,
+                s.fieldRow,
                 {
-                  borderColor: pwFocused ? colors.gold : colors.border,
-                  backgroundColor: pwFocused ? colors.goldBg : colors.surface,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: pwFocused ? colors.gold : colors.border,
                 },
                 password.length > 0 && { marginBottom: 8 },
               ]}
@@ -522,32 +601,58 @@ export default function SignupScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              style={s.btn}
-              onPress={handleSignup}
-              disabled={loading}
-              activeOpacity={0.85}
+            {/* CTA button */}
+            <LinearGradient
+              colors={['#ebc076', '#b18b46']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 16, marginTop: 32, overflow: 'hidden' }}
             >
-              {loading
-                ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
-                : <Text style={s.btnText}>Create Account</Text>
-              }
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}
+                onPress={handleSignup}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#271900" />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      letterSpacing: 3,
+                      fontSize: 13,
+                      color: '#271900',
+                    }}
+                  >
+                    CREATE ACCOUNT
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
 
-            <View style={s.loginRow}>
-              <Text style={s.loginHint}>Already have an account?</Text>
-              <Link href="/(auth)/login" asChild>
-                <TouchableOpacity>
-                  <Text style={s.loginLink}>Sign in</Text>
-                </TouchableOpacity>
-              </Link>
+            {/* Divider */}
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>External Keys</Text>
+              <View style={s.dividerLine} />
             </View>
 
-            <Text style={s.termsText}>
-              By signing up you agree to our{' '}
-              <Text style={s.termsLink}>Terms of Service</Text> and{' '}
-              <Text style={s.termsLink}>Privacy Policy</Text>
+            {/* Social placeholder buttons */}
+            <View style={s.socialRow}>
+              <View style={s.socialBtn}>
+                <Text style={s.socialBtnText}>Apple ID</Text>
+              </View>
+              <View style={s.socialBtn}>
+                <Text style={s.socialBtnText}>Google</Text>
+              </View>
+            </View>
+
+            {/* Footer */}
+            <Text style={s.footer}>
+              Strictly confidential · Access monitored by Steward Guardian AI
             </Text>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
