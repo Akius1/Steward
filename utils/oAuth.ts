@@ -20,7 +20,12 @@ WebBrowser.maybeCompleteAuthSession();
 
 // ── Internal: web-based OAuth flow ───────────────────────────────────────────
 async function webOAuth(provider: 'google' | 'apple'): Promise<void> {
-  const redirectTo = Linking.createURL('/');
+  // On native, always use the registered app scheme so Google/Apple redirects
+  // back into the app — NOT to a localhost dev-server URL the phone can't reach.
+  // On web, use the current origin (localhost:8081, or production URL).
+  const redirectTo = Platform.OS === 'web'
+    ? Linking.createURL('/')
+    : 'stewardapp://';
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -38,9 +43,9 @@ async function webOAuth(provider: 'google' | 'apple'): Promise<void> {
   // User cancelled or dismissed the browser — not an error
   if (result.type !== 'success') return;
 
-  // Supabase v2 PKCE: redirect back with ?code=… — exchange it for a session
-  const parsedUrl = new URL(result.url);
-  const code = parsedUrl.searchParams.get('code');
+  // Use Linking.parse — handles custom schemes (stewardapp://) safely
+  const parsed = Linking.parse(result.url);
+  const code = parsed.queryParams?.code as string | undefined;
 
   if (code) {
     const { error: e } = await supabase.auth.exchangeCodeForSession(code);
@@ -49,13 +54,15 @@ async function webOAuth(provider: 'google' | 'apple'): Promise<void> {
   }
 
   // Implicit-flow fallback: access_token in URL hash fragment
-  const hashParams = new URLSearchParams(parsedUrl.hash.replace('#', ''));
-  const access_token  = hashParams.get('access_token');
-  const refresh_token = hashParams.get('refresh_token');
-
-  if (access_token && refresh_token) {
-    const { error: e } = await supabase.auth.setSession({ access_token, refresh_token });
-    if (e) throw e;
+  const hashIndex = result.url.indexOf('#');
+  if (hashIndex !== -1) {
+    const hashParams = new URLSearchParams(result.url.slice(hashIndex + 1));
+    const access_token  = hashParams.get('access_token');
+    const refresh_token = hashParams.get('refresh_token');
+    if (access_token && refresh_token) {
+      const { error: e } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (e) throw e;
+    }
   }
 }
 
