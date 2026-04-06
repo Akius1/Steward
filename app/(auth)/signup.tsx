@@ -219,13 +219,13 @@ export default function SignupScreen() {
 
   // ── Theme-aware tokens ────────────────────────────────────────────────────────
   const ctaGradient: [string, string] = isDark
-    ? ['#ebc076', '#b18b46']
-    : ['#c89b3c', '#8a5f18'];
-  const ctaTextColor = isDark ? '#271900' : '#fff8ee';
+    ? ['#e9c349', '#aa890a']
+    : ['#aa890a', '#735c00'];
+  const ctaTextColor = isDark ? '#3c2f00' : '#ffe088';
 
-  const glowGold    = isDark ? 'rgba(235,192,118,0.07)' : 'rgba(235,192,118,0.20)';
-  const glowEmerald = isDark ? 'rgba(16,185,122,0.05)'  : 'rgba(16,185,122,0.10)';
-  const glowAccent  = isDark ? 'rgba(235,192,118,0.04)' : 'rgba(235,192,118,0.14)';
+  const glowGold    = isDark ? 'rgba(233,195,73,0.09)'  : 'rgba(233,195,73,0.18)';
+  const glowEmerald = isDark ? 'rgba(93,23,21,0.15)'    : 'rgba(255,218,216,0.50)';
+  const glowAccent  = isDark ? 'rgba(233,195,73,0.05)'  : 'rgba(233,195,73,0.12)';
 
   const r1Color = colors.emerald + (isDark ? '28' : '38');
   const r2Color = colors.emerald + (isDark ? '16' : '22');

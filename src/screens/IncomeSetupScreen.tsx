@@ -27,7 +27,7 @@ const INCOME_TYPES: IncomeType[] = ['SALARY', 'FREELANCE', 'BUSINESS', 'GIFT', '
 
 const TYPE_META: Record<IncomeType, { icon: React.ComponentProps<typeof Ionicons>['name']; color: string; bg: string }> = {
   SALARY:        { icon: 'briefcase-outline',  color: '#10B97A', bg: 'rgba(16,185,122,0.12)' },
-  FREELANCE:     { icon: 'laptop-outline',     color: '#ebc076', bg: 'rgba(235,192,118,0.12)' },
+  FREELANCE:     { icon: 'laptop-outline',     color: '#e9c349', bg: 'rgba(233,195,73,0.12)' },
   BUSINESS:      { icon: 'business-outline',   color: '#60A5FA', bg: 'rgba(96,165,250,0.12)' },
   GIFT:          { icon: 'gift-outline',       color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
   'SIDE INCOME': { icon: 'flash-outline',      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
@@ -35,7 +35,7 @@ const TYPE_META: Record<IncomeType, { icon: React.ComponentProps<typeof Ionicons
 
 const TYPE_BADGE: Record<IncomeType, { bg: string; text: string }> = {
   SALARY:        { bg: 'rgba(16,185,122,0.15)',  text: '#10B97A' },
-  FREELANCE:     { bg: 'rgba(235,192,118,0.15)', text: '#ebc076' },
+  FREELANCE:     { bg: 'rgba(233,195,73,0.15)',  text: '#e9c349' },
   BUSINESS:      { bg: 'rgba(96,165,250,0.15)',  text: '#60A5FA' },
   GIFT:          { bg: 'rgba(167,139,250,0.15)', text: '#A78BFA' },
   'SIDE INCOME': { bg: 'rgba(245,158,11,0.15)',  text: '#F59E0B' },
@@ -720,7 +720,7 @@ export default function IncomeSetupScreen() {
 
         {/* ── Hero Card ───────────────────────────────────── */}
         <LinearGradient
-          colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+          colors={isDark ? ['#2e1413', '#3f2221'] : ['#7a5a1a', '#9a7232']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={s.heroCard}

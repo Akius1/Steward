@@ -409,7 +409,7 @@ export default function ReportScreen() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
             <LinearGradient
-              colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+              colors={isDark ? ['#2e1413', '#3f2221'] : ['#7a5a1a', '#9a7232']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[s.advisoryCard, { borderColor: colors.goldDim }]}
@@ -417,7 +417,7 @@ export default function ReportScreen() {
               <View style={[s.advisoryStripe, { backgroundColor: 'rgba(235,192,118,0.6)' }]} />
               <View style={s.advisoryTop}>
                 <View style={[s.advisoryIconWrap, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-                  <Ionicons name="sparkles-outline" size={18} color="#ffdeaa" />
+                  <Ionicons name="sparkles-outline" size={18} color="#ffe088" />
                 </View>
                 <Text style={[s.advisoryTitle, { color: 'rgba(255,255,255,0.92)' }]}>Steward Advisory</Text>
                 <Text style={[s.advisoryMeta, { color: 'rgba(255,255,255,0.55)' }]}>

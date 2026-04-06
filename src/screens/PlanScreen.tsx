@@ -837,7 +837,7 @@ function FeaturedMilestoneCard({
       style={{ borderRadius: 24, overflow: 'hidden', marginBottom: 12 }}
     >
       <LinearGradient
-        colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+        colors={isDark ? ['#2e1413', '#3f2221'] : ['#7a5a1a', '#9a7232']}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ padding: 24 }}
       >
@@ -1339,8 +1339,8 @@ export default function PlanScreen() {
           }}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={['#ebc076', '#b18b46']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroAddGrad}>
-            <Ionicons name="add" size={16} color="#271900" />
+          <LinearGradient colors={['#e9c349', '#aa890a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroAddGrad}>
+            <Ionicons name="add" size={16} color="#3c2f00" />
             <Text style={s.heroAddTxt}>NEW GOAL</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1399,8 +1399,8 @@ export default function PlanScreen() {
                   onPress={() => { setEditingMilestone(null); setShowAddMilestone(true); }}
                   activeOpacity={0.85}
                 >
-                  <LinearGradient colors={['#ebc076', '#b18b46']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.emptyBtn}>
-                    <Ionicons name="add" size={16} color="#271900" />
+                  <LinearGradient colors={['#e9c349', '#aa890a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.emptyBtn}>
+                    <Ionicons name="add" size={16} color="#3c2f00" />
                     <Text style={s.emptyBtnText}>Add Life Goal</Text>
                   </LinearGradient>
                 </TouchableOpacity>
