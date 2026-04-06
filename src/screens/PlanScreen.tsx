@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -816,6 +817,85 @@ function LogContributionSheet({ visible, fund, onClose, onLog, colors, isDark, c
   );
 }
 
+// ─── FeaturedMilestoneCard ────────────────────────────────────────────────────
+
+function FeaturedMilestoneCard({
+  milestone, colors, isDark, currency, onTap, onLongPress,
+}: {
+  milestone: Milestone;
+  colors: any; isDark: boolean; currency: string;
+  onTap: () => void;
+  onLongPress: () => void;
+}) {
+  const iconObj = MILESTONE_ICONS.find(i => i.icon === milestone.icon) ?? MILESTONE_ICONS[7];
+  const status = getMilestoneStatus(milestone);
+  const progress = milestone.target_amount > 0 ? Math.min(1, milestone.saved_amount / milestone.target_amount) : 0;
+
+  return (
+    <TouchableOpacity
+      onPress={onTap} onLongPress={onLongPress} activeOpacity={0.9}
+      style={{ borderRadius: 24, overflow: 'hidden', marginBottom: 12 }}
+    >
+      <LinearGradient
+        colors={isDark ? ['#1e2021', '#282a2b'] : ['#7a5a1a', '#9a7232']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ padding: 24 }}
+      >
+        {/* Pill + deadline */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <View style={{ backgroundColor: colors.goldBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 }}>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: colors.gold, letterSpacing: 1.5, textTransform: 'uppercase' }}>Life Milestone</Text>
+          </View>
+          {milestone.deadline_months && (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5, textTransform: 'uppercase' }}>In {milestone.deadline_months} months</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Name */}
+        <Text style={{ fontFamily: FONTS.headingItalic, fontSize: 28, color: 'rgba(255,255,255,0.92)', marginBottom: 20, lineHeight: 32 }}>
+          {milestone.name}
+        </Text>
+
+        {/* Amounts row */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
+          <View>
+            <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Target</Text>
+            <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: 'rgba(255,255,255,0.9)' }}>{fmt(milestone.target_amount, currency as any)}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Saved</Text>
+            <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.goldLight ?? colors.gold }}>{fmt(milestone.saved_amount, currency as any)}</Text>
+          </View>
+        </View>
+
+        {/* Progress bar */}
+        <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
+          <View style={{ height: 4, width: `${Math.round(progress * 100)}%`, backgroundColor: colors.gold, borderRadius: 2 }} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5 }}>{Math.round(progress * 100)}% Progress</Text>
+          <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5 }}>{fmt(Math.max(0, milestone.target_amount - milestone.saved_amount), currency as any)} Remaining</Text>
+        </View>
+
+        {/* Divider + footer row */}
+        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 20, marginBottom: 16 }} />
+        <View style={{ flexDirection: 'row', gap: 32 }}>
+          <View>
+            <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Monthly</Text>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{fmt(milestone.monthly_saving, currency as any)}</Text>
+          </View>
+          <View>
+            <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Status</Text>
+            <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, marginTop: 2, color: status.color }}>{status.label}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
 // ─── MilestoneCard ────────────────────────────────────────────────────────────
 
 function MilestoneCard({
@@ -861,7 +941,7 @@ function MilestoneCard({
 
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
+            <Text style={{ fontFamily: FONTS.headingItalic, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
               {milestone.name}
             </Text>
             <View style={{ backgroundColor: status.bg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, marginLeft: 8, flexShrink: 0 }}>
@@ -957,7 +1037,7 @@ function FundCard({
         </View>
 
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>
+          <Text style={{ fontFamily: FONTS.headingItalic, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>
             {fund.name}
           </Text>
           <Text style={{ fontFamily: FONTS.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
@@ -1238,14 +1318,15 @@ export default function PlanScreen() {
     <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Fixed header */}
-      <View style={s.header}>
-        <View>
-          <Text style={s.headerTitle}>Plan</Text>
-          <Text style={s.headerSub}>Goals & sinking funds</Text>
+      {/* Hero header */}
+      <View style={s.heroHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.heroEyebrow}>WEALTH STEWARDSHIP</Text>
+          <Text style={s.heroTitle}>Plan your <Text style={s.heroTitleItalic}>legacy.</Text></Text>
+          <Text style={s.heroSubtitle}>Strategize for milestones that define your journey.</Text>
         </View>
         <TouchableOpacity
-          style={s.addHeaderBtn}
+          style={s.heroAddBtn}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             if (segment === 'milestones') {
@@ -1256,35 +1337,35 @@ export default function PlanScreen() {
               setShowAddFund(true);
             }
           }}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
-          <Ionicons name="add" size={18} color={colors.gold} />
-          <Text style={s.addHeaderTxt}>{segment === 'milestones' ? 'Add Goal' : 'Add Fund'}</Text>
+          <LinearGradient colors={['#ebc076', '#b18b46']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroAddGrad}>
+            <Ionicons name="add" size={16} color="#271900" />
+            <Text style={s.heroAddTxt}>NEW GOAL</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      {/* Segmented control */}
-      <View style={s.segmentWrap}>
-        <View style={s.segmentTrack}>
-          {(['milestones', 'funds'] as const).map((seg) => {
-            const active = segment === seg;
-            return (
-              <TouchableOpacity
-                key={seg}
-                style={[s.segmentPill, active && s.segmentPillActive]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSegment(seg);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={[s.segmentText, active && s.segmentTextActive]}>
-                  {seg === 'milestones' ? 'Milestones' : 'Sinking Funds'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+      {/* Underline tab control */}
+      <View style={s.tabRow}>
+        {(['milestones', 'funds'] as const).map((seg) => {
+          const active = segment === seg;
+          return (
+            <TouchableOpacity
+              key={seg}
+              style={s.tabBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSegment(seg);
+              }}
+            >
+              <Text style={[s.tabTxt, active && s.tabTxtActive]}>
+                {seg === 'milestones' ? 'Milestones' : 'Sinking Funds'}
+              </Text>
+              {active && <View style={s.tabUnderline} />}
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* ── MILESTONES SEGMENT ───────────────────────────────────────────────── */}
@@ -1311,21 +1392,33 @@ export default function PlanScreen() {
                 <View style={[s.emptyIconCircle, { backgroundColor: colors.goldBg }]}>
                   <Ionicons name="flag-outline" size={40} color={colors.gold} />
                 </View>
-                <Text style={s.emptyTitle}>Set your first goal</Text>
+                <Text style={s.emptyTitleItalic}>Set your first goal.</Text>
                 <Text style={s.emptySub}>Plan for a car, a home, or anything that matters.</Text>
                 <TouchableOpacity
-                  style={s.emptyBtn}
+                  style={s.emptyBtnWrap}
                   onPress={() => { setEditingMilestone(null); setShowAddMilestone(true); }}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="add" size={16} color={isDark ? colors.bg : '#FFF'} />
-                  <Text style={[s.emptyBtnText, { color: isDark ? colors.bg : '#FFF' }]}>Add Life Goal</Text>
+                  <LinearGradient colors={['#ebc076', '#b18b46']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.emptyBtn}>
+                    <Ionicons name="add" size={16} color="#271900" />
+                    <Text style={s.emptyBtnText}>Add Life Goal</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={s.listSection}>
                 <Text style={s.sectionLabel}>{milestones.length} goal{milestones.length !== 1 ? 's' : ''}</Text>
-                {milestones.map((m) => (
+                {milestones.map((m, index) => index === 0 ? (
+                  <FeaturedMilestoneCard
+                    key={m.id}
+                    milestone={m}
+                    colors={colors}
+                    isDark={isDark}
+                    currency={currency}
+                    onTap={() => { setEditSavedMilestone(m); setShowEditSaved(true); }}
+                    onLongPress={() => handleMilestoneLongPress(m)}
+                  />
+                ) : (
                   <MilestoneCard
                     key={m.id}
                     milestone={m}
@@ -1479,40 +1572,43 @@ function makeStyles(colors: any, isDark: boolean) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
 
-    header: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10,
+    // Hero header
+    heroHeader: {
+      paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20,
+      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     },
-    headerTitle: { fontFamily: FONTS.heading, fontSize: 24, color: colors.textPrimary, marginBottom: 2 },
-    headerSub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textSecondary },
+    heroEyebrow: {
+      fontFamily: FONTS.semibold, fontSize: 10, color: colors.gold,
+      letterSpacing: 4, textTransform: 'uppercase', marginBottom: 8,
+    },
+    heroTitle: {
+      fontFamily: FONTS.heading, fontSize: 40, color: colors.textPrimary,
+      letterSpacing: -1, lineHeight: 44, marginBottom: 8,
+    },
+    heroTitleItalic: {
+      fontFamily: FONTS.headingItalic, fontSize: 40, color: colors.textPrimary, letterSpacing: -1,
+    },
+    heroSubtitle: {
+      fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, lineHeight: 20,
+    },
+    heroAddBtn: { marginTop: 8, flexShrink: 0 },
+    heroAddGrad: {
+      borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+    },
+    heroAddTxt: { fontFamily: FONTS.semibold, fontSize: 11, color: '#271900', letterSpacing: 1.5 },
 
-    addHeaderBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      backgroundColor: colors.goldBg, borderRadius: 10,
-      paddingHorizontal: 12, paddingVertical: 8,
+    // Underline tab control
+    tabRow: {
+      flexDirection: 'row', paddingHorizontal: 20, gap: 28,
+      borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 4,
     },
-    addHeaderTxt: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.gold },
-
-    // Segmented control
-    segmentWrap: { paddingHorizontal: 20, paddingBottom: 14 },
-    segmentTrack: {
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: 14, padding: 4,
-      borderWidth: isDark ? 1 : 0,
-      borderColor: colors.border,
-    },
-    segmentPill: {
-      flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
-    },
-    segmentPillActive: {
-      backgroundColor: colors.goldBg,
-    },
-    segmentText: {
-      fontFamily: FONTS.semibold, fontSize: 13, color: colors.textMuted,
-    },
-    segmentTextActive: {
-      color: colors.gold,
+    tabBtn: { paddingBottom: 12, position: 'relative' },
+    tabTxt: { fontFamily: FONTS.heading, fontSize: 18, color: colors.textMuted, opacity: 0.45 },
+    tabTxtActive: { color: colors.textPrimary, opacity: 1 },
+    tabUnderline: {
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      height: 2, backgroundColor: colors.gold, borderRadius: 1,
     },
 
     scrollContent: { paddingBottom: 48 },
@@ -1532,13 +1628,14 @@ function makeStyles(colors: any, isDark: boolean) {
       alignItems: 'center', justifyContent: 'center', marginBottom: 16,
     },
     emptyTitle: { fontFamily: FONTS.heading, fontSize: 20, color: colors.textPrimary, marginBottom: 8, textAlign: 'center' },
-    emptySub: { fontFamily: FONTS.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
+    emptyTitleItalic: { fontFamily: FONTS.headingItalic, fontSize: 28, color: colors.textPrimary, marginBottom: 8, textAlign: 'center' },
+    emptySub: { fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
+    emptyBtnWrap: { marginTop: 20, borderRadius: 12, overflow: 'hidden' },
     emptyBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: colors.gold, borderRadius: 12,
-      paddingHorizontal: 20, paddingVertical: 12, marginTop: 20,
+      borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12,
     },
-    emptyBtnText: { fontFamily: FONTS.semibold, fontSize: 14 },
+    emptyBtnText: { fontFamily: FONTS.semibold, fontSize: 14, color: '#271900' },
 
     // Template grid (2 columns)
     templateGrid: {

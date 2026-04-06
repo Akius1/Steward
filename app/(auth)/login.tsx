@@ -15,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@/utils/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -51,38 +52,37 @@ export default function LoginScreen() {
   }
 
   const s = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
+    safe: { flex: 1, backgroundColor: '#121415' },
     kav: { flex: 1 },
     scroll: { flexGrow: 1 },
 
-    // ── Decorative area ─────────────────────────────────
+    // ── Ambient glow layers ──────────────────────────────
+    glowTopLeft: {
+      position: 'absolute',
+      width: 260,
+      height: 260,
+      borderRadius: 130,
+      backgroundColor: 'rgba(235,192,118,0.06)',
+      top: 0,
+      left: 0,
+      transform: [{ translateX: -80 }, { translateY: -80 }],
+    },
+    glowBottomRight: {
+      position: 'absolute',
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      backgroundColor: 'rgba(185,203,193,0.04)',
+      bottom: 0,
+      right: 0,
+      transform: [{ translateX: 70 }, { translateY: 70 }],
+    },
+
+    // ── Decorative header ────────────────────────────────
     deco: {
-      height: SCREEN_H * 0.36,
+      height: SCREEN_H * 0.38,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    ring: {
-      position: 'absolute',
-      borderRadius: 9999,
-      borderWidth: 1,
-    },
-    r1: { width: 180, height: 180, borderColor: colors.gold + '20' },
-    r2: { width: 300, height: 300, borderColor: colors.gold + '12' },
-    r3: { width: 420, height: 420, borderColor: colors.gold + '08' },
-    wordmark: {
-      fontFamily: FONTS.display,
-      fontSize: 56,
-      color: colors.gold,
-      letterSpacing: -2,
-      zIndex: 2,
-    },
-    tagline: {
-      fontFamily: FONTS.headingItalic,
-      fontSize: 14,
-      color: colors.goldLight,
-      marginTop: 6,
-      zIndex: 2,
-      fontStyle: 'italic',
     },
     themeBtn: {
       position: 'absolute',
@@ -95,54 +95,94 @@ export default function LoginScreen() {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    ring: {
+      position: 'absolute',
+      borderRadius: 9999,
+      borderWidth: 1,
+    },
+    r1: { width: 180, height: 180, borderColor: colors.gold + '20' },
+    r2: { width: 300, height: 300, borderColor: colors.gold + '12' },
+    r3: { width: 420, height: 420, borderColor: colors.gold + '08' },
+    wordmark: {
+      fontFamily: FONTS.semibold,
+      fontSize: 22,
+      color: colors.gold,
+      letterSpacing: 6,
+      textTransform: 'uppercase',
+      zIndex: 2,
+    },
+    vaultHeading: {
+      fontFamily: FONTS.headingItalic,
+      fontSize: 36,
+      color: colors.textPrimary,
+      marginTop: 12,
+      textAlign: 'center',
+      zIndex: 2,
+    },
+    tagline: {
+      fontFamily: FONTS.regular,
+      fontSize: 13,
+      color: colors.textMuted,
+      marginTop: 6,
+      zIndex: 2,
+      textAlign: 'center',
+    },
 
-    // ── Card ────────────────────────────────────────────
+    // ── Tab switcher ─────────────────────────────────────
+    tabRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 28,
+      gap: 32,
+      marginBottom: 32,
+    },
+    tabActiveText: {
+      fontFamily: FONTS.heading,
+      fontSize: 20,
+      color: colors.textPrimary,
+    },
+    tabActiveUnderline: {
+      height: 2,
+      backgroundColor: colors.gold,
+      borderRadius: 1,
+      marginTop: 6,
+    },
+    tabInactiveText: {
+      fontFamily: FONTS.heading,
+      fontSize: 20,
+      color: colors.textMuted,
+      opacity: 0.45,
+    },
+
+    // ── Card ─────────────────────────────────────────────
     card: {
       backgroundColor: colors.card,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,
-      borderWidth: isDark ? 1 : 0,
+      borderWidth: 1,
       borderColor: colors.border,
+      borderBottomWidth: 0,
       paddingHorizontal: 28,
-      paddingTop: 32,
-      paddingBottom: 40,
+      paddingTop: 36,
+      paddingBottom: 48,
       flex: 1,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: isDark ? 0 : 0.08,
-      shadowRadius: 12,
-      elevation: isDark ? 0 : 4,
-    },
-    cardTitle: {
-      fontFamily: FONTS.display,
-      fontSize: 30,
-      color: colors.textPrimary,
-      marginBottom: 4,
-    },
-    cardSubtitle: {
-      fontFamily: FONTS.regular,
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 32,
     },
 
-    // ── Input fields ────────────────────────────────────
+    // ── Field label ───────────────────────────────────────
     fieldLabel: {
       fontFamily: FONTS.medium,
-      fontSize: 11,
+      fontSize: 10,
       color: colors.textMuted,
-      letterSpacing: 0.8,
+      letterSpacing: 1.5,
       textTransform: 'uppercase',
-      marginBottom: 6,
+      marginBottom: 10,
     },
-    fieldWrap: {
+
+    // ── Bottom-border field ───────────────────────────────
+    fieldRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: 14,
-      borderWidth: 1.5,
-      paddingHorizontal: 16,
-      paddingVertical: 15,
-      marginBottom: 20,
+      paddingBottom: 14,
+      marginBottom: 28,
       gap: 12,
     },
     fieldInput: {
@@ -153,60 +193,90 @@ export default function LoginScreen() {
       paddingVertical: 0,
     },
 
+    // ── Forgot row ────────────────────────────────────────
     forgotRow: {
-      alignItems: 'flex-end',
-      marginTop: 4,
-      marginBottom: 28,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
     },
     forgotText: {
-      fontFamily: FONTS.medium,
-      fontSize: 13,
-      color: colors.gold,
-    },
-
-    // ── Buttons ─────────────────────────────────────────
-    signInBtn: {
-      backgroundColor: colors.gold,
-      borderRadius: 16,
-      height: 56,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 20,
-      borderTopWidth: 1,
-      borderTopColor: 'rgba(255,255,255,0.15)',
-    },
-    signInText: {
-      fontFamily: FONTS.semibold,
-      fontSize: 15,
-      color: isDark ? colors.bg : '#FFFFFF',
-    },
-    signUpRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 4,
-    },
-    signUpHint: {
       fontFamily: FONTS.regular,
-      fontSize: 13,
+      fontSize: 11,
       color: colors.textMuted,
     },
-    signUpLink: {
+
+    // ── Divider ───────────────────────────────────────────
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 28,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      fontFamily: FONTS.medium,
+      fontSize: 10,
+      color: colors.textMuted,
+      letterSpacing: 3,
+      opacity: 0.5,
+      marginHorizontal: 8,
+    },
+
+    // ── Social placeholder buttons ────────────────────────
+    socialRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    socialBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      height: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    socialBtnText: {
       fontFamily: FONTS.semibold,
-      fontSize: 13,
-      color: colors.gold,
+      fontSize: 11,
+      letterSpacing: 2,
+      color: colors.textMuted,
+    },
+
+    // ── Footer ────────────────────────────────────────────
+    footer: {
+      fontFamily: FONTS.regular,
+      fontSize: 10,
+      color: colors.textMuted,
+      textAlign: 'center',
+      marginTop: 36,
+      letterSpacing: 0.5,
+      opacity: 0.5,
+      lineHeight: 16,
     },
   });
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
+
+      {/* Ambient glow background */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={s.glowTopLeft} />
+        <View style={s.glowBottomRight} />
+      </View>
+
       <KeyboardAvoidingView
         style={s.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-          {/* ── Decorative header ───────────────────────── */}
+
+          {/* Wordmark section */}
           <View style={s.deco}>
             <TouchableOpacity style={s.themeBtn} onPress={toggleColorMode}>
               <Ionicons
@@ -219,22 +289,32 @@ export default function LoginScreen() {
             <View style={[s.ring, s.r2]} />
             <View style={[s.ring, s.r1]} />
             <Text style={s.wordmark}>Steward</Text>
+            <Text style={s.vaultHeading}>Enter the Vault.</Text>
             <Text style={s.tagline}>Give every naira a purpose.</Text>
           </View>
 
-          {/* ── Form card ───────────────────────────────── */}
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Welcome back</Text>
-            <Text style={s.cardSubtitle}>Sign in to your account</Text>
+          {/* Tab switcher */}
+          <View style={s.tabRow}>
+            <View>
+              <Text style={s.tabActiveText}>Login</Text>
+              <View style={s.tabActiveUnderline} />
+            </View>
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+              <Text style={s.tabInactiveText}>Join the House</Text>
+            </TouchableOpacity>
+          </View>
 
-            {/* Email */}
-            <Text style={s.fieldLabel}>Email address</Text>
+          {/* Form card */}
+          <View style={s.card}>
+
+            {/* Email field */}
+            <Text style={s.fieldLabel}>Identity (Email)</Text>
             <View
               style={[
-                s.fieldWrap,
+                s.fieldRow,
                 {
-                  borderColor: emailFocused ? colors.gold : colors.border,
-                  backgroundColor: emailFocused ? colors.goldBg : colors.surface,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: emailFocused ? colors.gold : colors.border,
                 },
               ]}
             >
@@ -260,14 +340,19 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* Password */}
-            <Text style={s.fieldLabel}>Password</Text>
+            {/* Password field */}
+            <View style={s.forgotRow}>
+              <Text style={s.fieldLabel}>Passcode</Text>
+              <TouchableOpacity>
+                <Text style={s.forgotText}>Forgot Access?</Text>
+              </TouchableOpacity>
+            </View>
             <View
               style={[
-                s.fieldWrap,
+                s.fieldRow,
                 {
-                  borderColor: pwFocused ? colors.gold : colors.border,
-                  backgroundColor: pwFocused ? colors.goldBg : colors.surface,
+                  borderBottomWidth: 1.5,
+                  borderBottomColor: pwFocused ? colors.gold : colors.border,
                 },
               ]}
             >
@@ -300,33 +385,58 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={s.forgotRow}>
-              <TouchableOpacity>
-                <Text style={s.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={s.signInBtn}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
+            {/* CTA button */}
+            <LinearGradient
+              colors={['#ebc076', '#b18b46']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ borderRadius: 16, marginTop: 32, overflow: 'hidden' }}
             >
-              {loading ? (
-                <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
-              ) : (
-                <Text style={s.signInText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={{ height: 60, alignItems: 'center', justifyContent: 'center' }}
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#271900" />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: FONTS.semibold,
+                      letterSpacing: 3,
+                      fontSize: 13,
+                      color: '#271900',
+                    }}
+                  >
+                    ENTER VAULT
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
 
-            <View style={s.signUpRow}>
-              <Text style={s.signUpHint}>Don't have an account?</Text>
-              <Link href="/(auth)/signup" asChild>
-                <TouchableOpacity>
-                  <Text style={s.signUpLink}>Sign up</Text>
-                </TouchableOpacity>
-              </Link>
+            {/* Divider */}
+            <View style={s.dividerRow}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>External Keys</Text>
+              <View style={s.dividerLine} />
             </View>
+
+            {/* Social placeholder buttons */}
+            <View style={s.socialRow}>
+              <View style={s.socialBtn}>
+                <Text style={s.socialBtnText}>Apple ID</Text>
+              </View>
+              <View style={s.socialBtn}>
+                <Text style={s.socialBtnText}>Google</Text>
+              </View>
+            </View>
+
+            {/* Footer */}
+            <Text style={s.footer}>
+              Strictly confidential · Access monitored by Steward Guardian AI
+            </Text>
+
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
