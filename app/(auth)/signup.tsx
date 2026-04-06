@@ -35,9 +35,8 @@ export default function SignupScreen() {
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]           = useState(false);
+  const [loading, setLoading]             = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading]   = useState(false);
   const [resending, setResending]       = useState(false);
   const [confirmed, setConfirmed]     = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
@@ -180,16 +179,9 @@ export default function SignupScreen() {
     }
   }
 
-  async function handleApple() {
-    try {
-      setAppleLoading(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await signInWithApple();
-    } catch (e: any) {
-      Alert.alert('Apple Sign-In Failed', e?.message ?? 'Something went wrong.');
-    } finally {
-      setAppleLoading(false);
-    }
+  function handleApple() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Coming Soon', 'Apple Sign-In will be available in a future update.');
   }
 
   async function handleResend() {
@@ -790,22 +782,15 @@ export default function SignupScreen() {
                 <TouchableOpacity
                   style={s.socialBtn}
                   onPress={handleApple}
-                  disabled={appleLoading || googleLoading || loading}
                   activeOpacity={0.75}
                 >
-                  {appleLoading ? (
-                    <ActivityIndicator size="small" color={colors.textMuted} />
-                  ) : (
-                    <>
-                      <Ionicons name="logo-apple" size={16} color={colors.textPrimary} />
-                      <Text style={s.socialBtnText}>Apple</Text>
-                    </>
-                  )}
+                  <Ionicons name="logo-apple" size={16} color={colors.textPrimary} />
+                  <Text style={s.socialBtnText}>Apple</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.socialBtn}
                   onPress={handleGoogle}
-                  disabled={googleLoading || appleLoading || loading}
+                  disabled={googleLoading || loading}
                   activeOpacity={0.75}
                 >
                   {googleLoading ? (
