@@ -2,9 +2,13 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import { TextInput } from 'react-native';
 import 'react-native-reanimated';
+
+// Closes the in-app browser after OAuth redirect on web
+WebBrowser.maybeCompleteAuthSession();
 
 // ─── Polyfill ─────────────────────────────────────────────────────────────────
 // @gorhom/bottom-sheet calls TextInput.State.currentlyFocusedInput() which
