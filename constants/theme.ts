@@ -1,20 +1,26 @@
-// Steward Design System — Royal Burgundy (dark) + Warm Rose (light)
+// Steward Design System — Royal Burgundy
 // Colour tokens derived from the Steward Royal Burgundy design language
+// Burgundy = primary action colour · Gold = accent / highlight colour
 
 // ─── Dark Palette — "Royal Burgundy" ─────────────────────────────────────────
 export const DARK_COLORS = {
-  bg:           '#240c0c',   // deep burgundy background
+  bg:           '#1a0505',   // deep burgundy background
   surface:      '#1e0707',   // surface-container-lowest
   card:         '#2e1413',   // surface-container-low
   cardElevated: '#3f2221',   // surface-container-high
   border:       '#554240',   // outline-variant
   borderLight:  '#a38b89',   // outline
 
-  gold:         '#e9c349',   // primary
-  goldLight:    '#ffe088',   // primary-fixed
-  goldDim:      '#aa890a',   // on-primary-container
-  goldBg:       'rgba(233,195,73,0.10)',
-  goldBgStrong: 'rgba(233,195,73,0.20)',
+  // Burgundy — primary action colour (CTA buttons, header)
+  burgundy:     '#4E0B0B',   // primary burgundy
+  burgundyNav:  '#210909',   // nav bar / pill background
+
+  // Gold — accent / highlight (numbers, progress bars, active states)
+  gold:         '#D4AF37',   // primary gold
+  goldLight:    '#F0D060',   // gold light / fixed
+  goldDim:      '#B38F2D',   // gold dim
+  goldBg:       'rgba(212,175,55,0.10)',
+  goldBgStrong: 'rgba(212,175,55,0.22)',
 
   emerald:      '#10B97A',
   emeraldLight: '#34D399',
@@ -24,7 +30,7 @@ export const DARK_COLORS = {
   textSecondary: '#dbc1be',  // on-surface-variant
   textMuted:     '#a38b89',  // outline
 
-  secondary:  '#ffb3ac',     // secondary
+  secondary:  '#ffb3ac',     // secondary container
   tertiary:   '#c8c8b0',     // tertiary
 
   success:    '#22C55E',
@@ -44,30 +50,35 @@ export const DARK_COLORS = {
   overlay:    'rgba(0,0,0,0.75)',
 } as const;
 
-// ─── Light Palette — "Warm Rose" ─────────────────────────────────────────────
+// ─── Light Palette — "Royal Burgundy Light" ───────────────────────────────────
 export const LIGHT_COLORS = {
-  bg:           '#ffdad6',   // warm rose parchment background
-  surface:      '#ffdad8',   // on-surface (as surface in light)
+  bg:           '#f9f9f9',   // near-neutral white background
+  surface:      '#f3f3f4',   // surface-container-low
   card:         '#ffffff',   // pure white card
-  cardElevated: '#f7eae8',   // slightly tinted elevated card
-  border:       '#dbc1be',   // on-surface-variant as border
-  borderLight:  '#ede0de',   // lighter border
+  cardElevated: '#eeeeee',   // surface-container
+  border:       '#887270',   // outline
+  borderLight:  '#dbc1be',   // outline-variant
 
-  gold:         '#735c00',   // inverse-primary (dark gold on light bg)
-  goldLight:    '#e9c349',   // primary-fixed-dim
-  goldDim:      '#574500',   // on-primary-fixed-variant
-  goldBg:       'rgba(115,92,0,0.08)',
-  goldBgStrong: 'rgba(115,92,0,0.15)',
+  // Burgundy — primary action colour
+  burgundy:     '#4E0B0B',   // primary CTA / header
+  burgundyNav:  '#210909',   // nav accent
+
+  // Gold — accent / highlight
+  gold:         '#D4AF37',   // primary gold accent
+  goldLight:    '#F0D060',   // gold light
+  goldDim:      '#B38F2D',   // gold dim
+  goldBg:       'rgba(212,175,55,0.09)',
+  goldBgStrong: 'rgba(212,175,55,0.18)',
 
   emerald:      '#0A9660',
   emeraldLight: '#10B97A',
   emeraldBg:    'rgba(10,150,96,0.10)',
 
-  textPrimary:   '#240c0c',  // surface / near-black burgundy
-  textSecondary: '#462827',  // inverse-on-surface
-  textMuted:     '#7b2d29',  // on-secondary-fixed-variant
+  textPrimary:   '#161000',  // near-black primary text
+  textSecondary: '#462827',  // dark burgundy secondary text
+  textMuted:     '#887270',  // muted / outline colour
 
-  secondary:  '#7e2f2b',     // secondary-container
+  secondary:  '#99443e',     // mid-burgundy secondary
   tertiary:   '#474836',     // on-tertiary-fixed-variant
 
   success:    '#16A34A',
@@ -83,8 +94,8 @@ export const LIGHT_COLORS = {
   pink:       '#BE185D',
   pinkBg:     'rgba(190,24,93,0.10)',
 
-  shadow:     'rgba(36,12,12,0.12)',
-  overlay:    'rgba(36,12,12,0.50)',
+  shadow:     'rgba(22,16,0,0.10)',
+  overlay:    'rgba(22,16,0,0.50)',
 } as const;
 
 export const COLORS = DARK_COLORS;
@@ -136,7 +147,7 @@ export const SHADOWS = {
 
 // ─── Allocation bucket palette ────────────────────────────────────────────────
 export const BUCKET_COLORS = [
-  '#e9c349', // Gold      — Rent/Housing  (updated to Royal Burgundy primary)
+  '#D4AF37', // Gold      — Rent/Housing
   '#10B97A', // Emerald   — Food
   '#60A5FA', // Blue      — Savings
   '#A78BFA', // Purple    — Investments
@@ -144,6 +155,7 @@ export const BUCKET_COLORS = [
   '#F59E0B', // Amber     — Emergency
   '#34D399', // Mint      — Giving
   '#c8c8b0', // Sage      — Covenant Practice
+  '#06B6D4', // Cyan      — Utilities
 ] as const;
 
 export const CUSTOM_BUCKET_COLORS = [
@@ -157,12 +169,13 @@ export const CUSTOM_BUCKET_COLORS = [
 ] as const;
 
 export const BUCKET_DEFAULTS = [
-  { name: 'Rent & Housing',    icon: 'home-outline',             color: BUCKET_COLORS[0], defaultPct: 25 },
+  { name: 'Rent & Housing',    icon: 'home-outline',             color: BUCKET_COLORS[0], defaultPct: 22 },
   { name: 'Food & Groceries',  icon: 'restaurant-outline',       color: BUCKET_COLORS[1], defaultPct: 10 },
   { name: 'Savings',           icon: 'trending-up-outline',      color: BUCKET_COLORS[2], defaultPct: 20 },
   { name: 'Investments',       icon: 'stats-chart-outline',      color: BUCKET_COLORS[3], defaultPct: 10 },
   { name: 'Entertainment',     icon: 'musical-notes-outline',    color: BUCKET_COLORS[4], defaultPct: 5  },
-  { name: 'Emergency Fund',    icon: 'shield-checkmark-outline', color: BUCKET_COLORS[5], defaultPct: 15 },
+  { name: 'Emergency Fund',    icon: 'shield-checkmark-outline', color: BUCKET_COLORS[5], defaultPct: 13 },
   { name: 'Giving',            icon: 'heart-outline',            color: BUCKET_COLORS[6], defaultPct: 5  },
   { name: 'Covenant Practice', icon: 'infinite-outline',         color: BUCKET_COLORS[7], defaultPct: 10 },
+  { name: 'Utilities',         icon: 'flash-outline',            color: BUCKET_COLORS[8], defaultPct: 5  },
 ] as const;
