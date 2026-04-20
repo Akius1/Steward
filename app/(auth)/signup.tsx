@@ -218,18 +218,17 @@ export default function SignupScreen() {
   const pwBorderColor    = pwBorderAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.border, colors.gold] });
 
   // ── Theme-aware tokens ────────────────────────────────────────────────────────
-  const ctaGradient: [string, string] = isDark
-    ? ['#e9c349', '#aa890a']
-    : ['#aa890a', '#735c00'];
-  const ctaTextColor = isDark ? '#3c2f00' : '#ffe088';
+  // Burgundy is the primary CTA colour · gold text sits on top for premium feel
+  const ctaGradient: [string, string] = ['#4E0B0B', '#210909'];
+  const ctaTextColor = '#D4AF37'; // warm gold on deep burgundy
 
-  const glowGold    = isDark ? 'rgba(233,195,73,0.09)'  : 'rgba(233,195,73,0.18)';
-  const glowEmerald = isDark ? 'rgba(93,23,21,0.15)'    : 'rgba(255,218,216,0.50)';
-  const glowAccent  = isDark ? 'rgba(233,195,73,0.05)'  : 'rgba(233,195,73,0.12)';
+  const glowGold    = isDark ? 'rgba(212,175,55,0.07)'  : 'rgba(212,175,55,0.10)';
+  const glowEmerald = isDark ? 'rgba(16,185,122,0.08)'  : 'rgba(16,185,122,0.06)';
+  const glowAccent  = isDark ? 'rgba(78,11,11,0.22)'    : 'rgba(78,11,11,0.04)';
 
-  const r1Color = colors.emerald + (isDark ? '28' : '38');
-  const r2Color = colors.emerald + (isDark ? '16' : '22');
-  const r3Color = colors.gold    + (isDark ? '0e' : '15');
+  const r1Color = colors.emerald + (isDark ? '28' : '35');
+  const r2Color = colors.emerald + (isDark ? '16' : '20');
+  const r3Color = colors.gold    + (isDark ? '0e' : '12');
 
   const s = StyleSheet.create({
     safe:   { flex: 1, backgroundColor: colors.bg },
@@ -464,7 +463,7 @@ export default function SignupScreen() {
           <View style={s.centerDot} />
           <View style={s.heroWrap}>
             <Text style={s.wordmark}>Steward</Text>
-            <Text style={s.tagline}>Give every naira a purpose.</Text>
+            <Text style={s.tagline}>Give every coin a purpose.</Text>
           </View>
         </View>
 
@@ -566,7 +565,7 @@ export default function SignupScreen() {
             >
               <Text style={s.wordmark}>Steward</Text>
               <Text style={s.vaultHeading}>Join the House.</Text>
-              <Text style={s.tagline}>Give every naira a purpose.</Text>
+              <Text style={s.tagline}>Give every coin a purpose.</Text>
             </Animated.View>
 
           </View>

@@ -4,8 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
-import { TextInput } from 'react-native';
-import 'react-native-reanimated';
+import { TextInput, View, Text } from 'react-native';
 
 // Closes the in-app browser after OAuth redirect on web
 WebBrowser.maybeCompleteAuthSession();
@@ -33,8 +32,7 @@ import {
 
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-
-export { ErrorBoundary } from 'expo-router';
+import BiometricLock from '@/src/components/BiometricLock';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -54,21 +52,25 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    // Don't throw — log font errors and continue with system fonts
+    if (error) console.warn('Font load error (non-fatal):', error);
   }, [error]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+    // Hide splash once fonts load or fail — never stay stuck
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
 
-  if (!loaded) return null;
+  if (!loaded && !error) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <AuthProvider>
           <BottomSheetModalProvider>
-            <RootLayoutNav />
+            <BiometricLock>
+              <RootLayoutNav />
+            </BiometricLock>
           </BottomSheetModalProvider>
         </AuthProvider>
       </ThemeProvider>
@@ -78,20 +80,29 @@ export default function RootLayout() {
 
 // ─── Auth-gated navigator ─────────────────────────────────────────────────────
 function RootLayoutNav() {
-  const { session, loading } = useAuth();
+  const { session, loading, profile } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
     if (loading) return;
     const inAuth = (segments[0] as string) === '(auth)';
+    const inOnboarding = (segments[0] as string) === 'onboarding';
 
     if (!session && !inAuth) {
       router.replace('/(auth)/login');
     } else if (session && inAuth) {
-      router.replace('/(tabs)');
+      // Wait for profile to load before deciding onboarding vs tabs
+      if (profile === null) return;
+      if (!profile.onboarding_done) {
+        router.replace('/onboarding' as any);
+      } else {
+        router.replace('/(tabs)');
+      }
+    } else if (session && !inAuth && !inOnboarding && profile && !profile.onboarding_done) {
+      router.replace('/onboarding' as any);
     }
-  }, [session, loading, segments]);
+  }, [session, loading, segments, profile]);
 
   // Keep splash visible while checking session
   if (loading) return null;
@@ -100,6 +111,10 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="ai-coach" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="debt-planner" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="transactions" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true }} />
     </Stack>

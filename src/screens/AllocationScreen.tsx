@@ -10,6 +10,7 @@ import {
   Alert,
   Keyboard,
 } from 'react-native';
+import DonutChart from '@/src/components/DonutChart';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { BottomSheetInput } from '@/utils/BottomSheetInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,6 +57,19 @@ function getThreshold(bucketName: string, pct: number): { status: ThresholdStatu
 }
 
 const DEFAULT_NAMES = new Set(BUCKET_DEFAULTS.map((b) => b.name));
+
+// Maps allocation bucket names → transaction categories that count against them
+const BUCKET_CATEGORY_MAP: Record<string, string[]> = {
+  'Rent & Housing':    ['Housing'],
+  'Food & Groceries':  ['Food'],
+  'Savings':           ['Savings'],
+  'Investments':       ['Investment'],
+  'Entertainment':     ['Entertainment'],
+  'Emergency Fund':    [],
+  'Giving':            [],
+  'Covenant Practice': [],
+  'Utilities':         ['Utilities'],
+};
 
 // ─── Add Bucket Modal ─────────────────────────────────────────────────────────
 function AddBucketModal({
@@ -211,6 +225,16 @@ export default function AllocationScreen() {
   const [showAddBucket, setShowAddBucket] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
+  // ── Budget vs Actual ──────────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<'plan' | 'actual'>('plan');
+  const [actualSpends, setActualSpends] = useState<Record<string, number>>({});
+  const [actualLoading, setActualLoading] = useState(false);
+  const [actualLoaded, setActualLoaded] = useState(false);
+
+  // ── Monthly Reset ─────────────────────────────────────────────────────────
+  const resetSheetRef = useRef<BottomSheetModal>(null);
+  const [lastMonthRows, setLastMonthRows] = useState<any[]>([]);
+
   const scrollRef = useRef<ScrollView>(null);
   // Store each bucket card's Y offset so we can scroll to it when focused
   const cardOffsets = useRef<Record<string, number>>({});
@@ -269,18 +293,100 @@ export default function AllocationScreen() {
         }));
       setBuckets([...defaultBuckets, ...customBuckets]);
     } else if (income > 0) {
-      setBuckets(
-        BUCKET_DEFAULTS.map((b) => ({
-          name: b.name, icon: b.icon, color: b.color,
-          amount: Math.round((income * b.defaultPct) / 100),
-          isCustom: false,
-        }))
-      );
+      // No current-month plan — check if last month had one
+      const prevM = month === 1 ? 12 : month - 1;
+      const prevY = month === 1 ? year - 1 : year;
+      let prevQ = (supabase as any).from('allocations').select('*').eq('month', prevM).eq('year', prevY);
+      prevQ = household
+        ? prevQ.eq('household_id', household.id)
+        : prevQ.eq('user_id', user.id).is('household_id', null);
+      const { data: prevRows } = await prevQ;
+
+      if (prevRows && prevRows.length > 0) {
+        setLastMonthRows(prevRows);
+        // Show suggested default for now; reset sheet will let user choose
+        setBuckets(
+          BUCKET_DEFAULTS.map((b) => ({
+            name: b.name, icon: b.icon, color: b.color,
+            amount: Math.round((income * b.defaultPct) / 100),
+            isCustom: false,
+          }))
+        );
+        // Defer sheet presentation until after render
+        setTimeout(() => resetSheetRef.current?.present(), 600);
+      } else {
+        setBuckets(
+          BUCKET_DEFAULTS.map((b) => ({
+            name: b.name, icon: b.icon, color: b.color,
+            amount: Math.round((income * b.defaultPct) / 100),
+            isCustom: false,
+          }))
+        );
+      }
     }
     setLoading(false);
   }, [user, household, month, year]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadActual = useCallback(async () => {
+    if (!user || actualLoaded) return;
+    setActualLoading(true);
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextM = month === 12 ? 1 : month + 1;
+    const nextY = month === 12 ? year + 1 : year;
+    const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+
+    let q = (supabase as any)
+      .from('transactions')
+      .select('category, amount')
+      .eq('type', 'expense')
+      .gte('date', start)
+      .lt('date', end);
+    q = household ? q.eq('household_id', household.id) : q.eq('user_id', user.id).is('household_id', null);
+
+    const { data } = await q;
+    const sums: Record<string, number> = {};
+    for (const row of (data ?? []) as Array<{ category: string; amount: number }>) {
+      sums[row.category] = (sums[row.category] ?? 0) + row.amount;
+    }
+    setActualSpends(sums);
+    setActualLoaded(true);
+    setActualLoading(false);
+  }, [user, household, month, year, actualLoaded]);
+
+  function handleToggleMode(mode: 'plan' | 'actual') {
+    setViewMode(mode);
+    if (mode === 'actual') loadActual();
+  }
+
+  function applyResetOption(option: 'copy' | 'fresh' | 'suggested') {
+    resetSheetRef.current?.dismiss();
+    if (option === 'copy') {
+      const defaultBuckets = BUCKET_DEFAULTS.map((b) => {
+        const found = lastMonthRows.find((r: any) => r.bucket_name === b.name);
+        return { name: b.name, icon: b.icon, color: b.color, amount: found ? found.amount : 0, isCustom: false };
+      });
+      const customBuckets = lastMonthRows
+        .filter((r: any) => !DEFAULT_NAMES.has(r.bucket_name))
+        .map((r: any, i: number) => ({
+          name: r.bucket_name, icon: 'wallet-outline',
+          color: CUSTOM_BUCKET_COLORS[i % CUSTOM_BUCKET_COLORS.length],
+          amount: r.amount, isCustom: true,
+        }));
+      setBuckets([...defaultBuckets, ...customBuckets]);
+    } else if (option === 'fresh') {
+      setBuckets(BUCKET_DEFAULTS.map((b) => ({ name: b.name, icon: b.icon, color: b.color, amount: 0, isCustom: false })));
+    } else {
+      setBuckets(
+        BUCKET_DEFAULTS.map((b) => ({
+          name: b.name, icon: b.icon, color: b.color,
+          amount: Math.round((totalIncome * b.defaultPct) / 100),
+          isCustom: false,
+        }))
+      );
+    }
+  }
 
   function updateAmount(bucketName: string, raw: string) {
     const n = parseInput(raw);
@@ -399,20 +505,123 @@ export default function AllocationScreen() {
           <Text style={s.headerTitle}>Allocation</Text>
           <Text style={s.headerSub}>{monthLabel}</Text>
         </View>
-        <TouchableOpacity
-          style={[s.saveBtn, keyboardVisible ? s.saveBtnDone : (!isBalanced || saving) ? s.saveBtnDisabled : null]}
-          onPress={handleSave}
-          disabled={saving}
-          activeOpacity={0.85}
-        >
-          {saving
-            ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
-            : <Text style={s.saveBtnText}>{keyboardVisible ? 'Done ✓' : 'Save'}</Text>
-          }
-        </TouchableOpacity>
+        {viewMode === 'plan' && (
+          <TouchableOpacity
+            style={[s.saveBtn, keyboardVisible ? s.saveBtnDone : (!isBalanced || saving) ? s.saveBtnDisabled : null]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
+              : <Text style={s.saveBtnText}>{keyboardVisible ? 'Done ✓' : 'Save'}</Text>
+            }
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView
+      {/* ── Plan / Actual toggle ─────────────────────────── */}
+      <View style={s.modeToggle}>
+        {(['plan', 'actual'] as const).map((m) => (
+          <TouchableOpacity
+            key={m}
+            style={[s.modeBtn, viewMode === m && s.modeBtnActive]}
+            onPress={() => handleToggleMode(m)}
+            activeOpacity={0.8}
+          >
+            <Text style={[s.modeBtnText, viewMode === m && s.modeBtnTextActive]}>
+              {m === 'plan' ? 'Budget' : 'Actual'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── Actual view ──────────────────────────────────── */}
+      {viewMode === 'actual' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+          {actualLoading ? (
+            <ActivityIndicator color={colors.gold} size="large" style={{ marginTop: 60 }} />
+          ) : (
+            <View style={s.section}>
+              {/* Actual summary bar */}
+              <View style={[s.summaryCard, { marginHorizontal: 0, marginBottom: 16 }]}>
+                <Text style={s.summaryLabel}>TOTAL BUDGETED</Text>
+                <Text style={s.summaryTotal}>{fmt(totalAllocated, currency)}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+                  <View>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: colors.textMuted, marginBottom: 2 }}>SPENT</Text>
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 18, color: colors.danger }}>
+                      {fmt(Object.values(actualSpends).reduce((a, b) => a + b, 0), currency)}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: colors.textMuted, marginBottom: 2 }}>REMAINING</Text>
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 18, color: colors.success }}>
+                      {fmt(Math.max(0, totalAllocated - Object.values(actualSpends).reduce((a, b) => a + b, 0)), currency)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {buckets.map((bucket, i) => {
+                const cats = BUCKET_CATEGORY_MAP[bucket.name] ?? [];
+                const spent = cats.reduce((sum, cat) => sum + (actualSpends[cat] ?? 0), 0);
+                const budgeted = bucket.amount;
+                const ratio = budgeted > 0 ? spent / budgeted : 0;
+                const overBudget = ratio >= 1;
+                const nearLimit = ratio >= 0.75 && !overBudget;
+                const barColor = overBudget ? colors.danger : nearLimit ? colors.warning : colors.success;
+                const remaining = budgeted - spent;
+
+                return (
+                  <View key={bucket.name} style={[s.bucketCard, i > 0 && s.mt10]}>
+                    <View style={s.bucketTop}>
+                      <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22', borderColor: bucket.color + '44' }]}>
+                        <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.bucketName}>{bucket.name}</Text>
+                        <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
+                          <View>
+                            <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>Budget</Text>
+                            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary }}>{fmt(budgeted, currency)}</Text>
+                          </View>
+                          <View>
+                            <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>Spent</Text>
+                            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: spent > 0 ? barColor : colors.textMuted }}>{fmt(spent, currency)}</Text>
+                          </View>
+                          <View>
+                            <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>{overBudget ? 'Over' : 'Left'}</Text>
+                            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: overBudget ? colors.danger : colors.success }}>
+                              {fmt(Math.abs(remaining), currency)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      {cats.length === 0 && (
+                        <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: colors.textMuted, textAlign: 'right', maxWidth: 70 }}>
+                          No tracked category
+                        </Text>
+                      )}
+                    </View>
+                    <View style={[s.bucketBarTrack, { marginTop: 12, height: 5, borderRadius: 3 }]}>
+                      <View style={[s.bucketBarFill, { width: `${Math.min(ratio * 100, 100)}%` as any, backgroundColor: barColor, height: 5, borderRadius: 3 }]} />
+                    </View>
+                    {overBudget && (
+                      <Text style={{ fontFamily: FONTS.medium, fontSize: 11, color: colors.danger, marginTop: 4 }}>
+                        Over budget by {fmt(Math.abs(remaining), currency)}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      )}
+
+      {/* ── Plan view (existing) ─────────────────────────── */}
+      {viewMode === 'plan' && <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scrollContent}
@@ -421,18 +630,16 @@ export default function AllocationScreen() {
         >
           {/* ── Summary Card ─────────────────────────────────── */}
           <View style={s.summaryCard}>
+            {/* Label row — balance pill sits beside the small label, never beside the big number */}
             <View style={s.summaryTop}>
-              <View>
-                <Text style={s.summaryLabel}>TOTAL INCOME</Text>
-                <Text style={s.summaryTotal}>{fmt(totalIncome, currency)}</Text>
-              </View>
+              <Text style={s.summaryLabel}>TOTAL INCOME</Text>
               <View style={[
                 s.remainingPill,
                 { backgroundColor: isBalanced ? colors.emeraldBg : remaining > 0 ? colors.warningBg : colors.dangerBg },
               ]}>
                 <Ionicons
                   name={isBalanced ? 'checkmark-circle' : 'alert-circle-outline'}
-                  size={14}
+                  size={13}
                   color={isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger}
                 />
                 <Text style={[s.remainingText, { color: isBalanced ? colors.emerald : remaining > 0 ? colors.warning : colors.danger }]}>
@@ -440,22 +647,32 @@ export default function AllocationScreen() {
                 </Text>
               </View>
             </View>
+            {/* Big income number on its own line — no competition for space */}
+            <Text style={s.summaryTotal}>{fmt(totalIncome, currency)}</Text>
 
-            <View style={s.stackedBar}>
-              {buckets.map((b, i) => (
-                <View key={b.name} style={[s.stackedSeg, { flex: totalIncome > 0 ? b.amount / totalIncome * 100 : 1, backgroundColor: b.color }, i > 0 && { marginLeft: 2 }]} />
-              ))}
-            </View>
-
-            <View style={s.legendRow}>
-              {buckets.map((b) => (
-                <View key={b.name} style={s.legendItem}>
-                  <View style={[s.legendDot, { backgroundColor: b.color }]} />
-                  <Text style={s.legendLabel}>
-                    {b.name.slice(0, 3)} {totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%
-                  </Text>
-                </View>
-              ))}
+            {/* Donut chart + legend */}
+            <View style={s.donutRow}>
+              <DonutChart
+                segments={buckets.map((b) => ({ value: b.amount, color: b.color, label: b.name }))}
+                size={120}
+                strokeWidth={18}
+                centerLabel={`${allocPct}%`}
+                centerSub="allocated"
+                colors={colors}
+              />
+              <View style={s.legendCol}>
+                {buckets.filter((b) => b.amount > 0).map((b) => (
+                  <View key={b.name} style={s.legendItem}>
+                    <View style={[s.legendDot, { backgroundColor: b.color }]} />
+                    <Text style={s.legendLabel} numberOfLines={1}>
+                      {b.name.length > 12 ? b.name.slice(0, 12) + '…' : b.name}{' '}
+                      <Text style={{ color: b.color }}>
+                        {totalIncome > 0 ? Math.round((b.amount / totalIncome) * 100) : 0}%
+                      </Text>
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
             {!isBalanced && Math.abs(remaining) < totalIncome * 0.2 && (
@@ -551,7 +768,7 @@ export default function AllocationScreen() {
               {'"Give every naira a name — Steward budgeting principle"'}
             </Text>
           </View>
-      </ScrollView>
+      </ScrollView>}
 
       <AddBucketModal
         visible={showAddBucket}
@@ -562,6 +779,68 @@ export default function AllocationScreen() {
         colors={colors}
         isDark={isDark}
       />
+
+      {/* ── Monthly Reset Sheet ─────────────────────────────── */}
+      <BottomSheetModal
+        ref={resetSheetRef}
+        enableDynamicSizing
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+        )}
+        backgroundStyle={{ backgroundColor: colors.card, borderRadius: 28 }}
+        handleIndicatorStyle={{ backgroundColor: colors.border, width: 40 }}
+      >
+        <View style={{ paddingHorizontal: 24, paddingBottom: 40, paddingTop: 8 }}>
+          <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 6 }}>
+            New Month 🗓
+          </Text>
+          <Text style={{ fontFamily: FONTS.regular, fontSize: 14, color: colors.textSecondary, lineHeight: 22, marginBottom: 24 }}>
+            {monthLabel} has no plan yet. How would you like to start?
+          </Text>
+
+          {[
+            {
+              key: 'copy' as const,
+              icon: 'copy-outline',
+              title: "Copy last month's plan",
+              sub: 'Duplicate your previous allocation amounts',
+            },
+            {
+              key: 'suggested' as const,
+              icon: 'bulb-outline',
+              title: 'Use suggested percentages',
+              sub: "Apply Steward's recommended budget split",
+            },
+            {
+              key: 'fresh' as const,
+              icon: 'refresh-outline',
+              title: 'Start fresh',
+              sub: 'Begin with all buckets at zero',
+            },
+          ].map((opt) => (
+            <TouchableOpacity
+              key={opt.key}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 14,
+                backgroundColor: colors.surface, borderRadius: 14,
+                padding: 16, marginBottom: 10,
+                borderWidth: 1, borderColor: colors.border,
+              }}
+              onPress={() => applyResetOption(opt.key)}
+              activeOpacity={0.8}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.burgundy + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name={opt.icon as any} size={20} color={colors.burgundy} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 }}>{opt.title}</Text>
+                <Text style={{ fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted }}>{opt.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -594,9 +873,9 @@ function makeStyles(colors: any, isDark: boolean) {
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 }, shadowOpacity: isDark ? 0 : 0.08, shadowRadius: 8, elevation: isDark ? 0 : 3,
     },
-    summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-    summaryLabel: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.gold + 'B3', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-    summaryTotal: { fontFamily: FONTS.headingItalic, fontSize: 44, color: colors.textPrimary, letterSpacing: -1 },
+    summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    summaryLabel: { fontFamily: FONTS.semibold, fontSize: 10, color: colors.gold + 'B3', letterSpacing: 1, textTransform: 'uppercase' },
+    summaryTotal: { fontFamily: FONTS.headingItalic, fontSize: 44, color: colors.textPrimary, letterSpacing: -1, marginBottom: 16 },
 
     remainingPill: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -604,13 +883,11 @@ function makeStyles(colors: any, isDark: boolean) {
     },
     remainingText: { fontFamily: FONTS.semibold, fontSize: 13 },
 
-    stackedBar: { flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', marginBottom: 8 },
-    stackedSeg: { height: 14, borderRadius: 2 },
-
-    legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    legendDot: { width: 7, height: 7, borderRadius: 4 },
-    legendLabel: { fontFamily: FONTS.regular, fontSize: 10, color: colors.textMuted },
+    donutRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 8 },
+    legendCol: { flex: 1, gap: 5 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    legendDot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
+    legendLabel: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted, flex: 1 },
 
     autoBalanceBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
@@ -672,6 +949,17 @@ function makeStyles(colors: any, isDark: boolean) {
       borderStyle: 'dashed', padding: 18, justifyContent: 'center',
     },
     addBucketCardTxt: { fontFamily: FONTS.medium, fontSize: 14, color: colors.gold },
+
+    modeToggle: {
+      flexDirection: 'row', marginHorizontal: 20, marginBottom: 4,
+      backgroundColor: colors.surface, borderRadius: 12, padding: 3,
+    },
+    modeBtn: {
+      flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
+    },
+    modeBtnActive: { backgroundColor: colors.burgundy },
+    modeBtnText: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textMuted },
+    modeBtnTextActive: { color: colors.gold },
 
     bucketBarTrack: { height: 3, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
     bucketBarFill: { height: 3, borderRadius: 2 },

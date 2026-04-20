@@ -68,6 +68,7 @@ export interface Profile {
   name: string;
   currency: CurrencyCode;
   subscription: 'free' | 'premium';
+  onboarding_done: boolean;
   created_at: string;
 }
 

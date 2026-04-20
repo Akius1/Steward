@@ -1,0 +1,11 @@
+# Supabase CLI binaries — not needed for the app build
+supabase.exe
+supabase.tar.gz
+
+# Supabase local dev files
+supabase/.branches
+supabase/.temp
+
+# Other large/unnecessary files
+.claude
+*.log

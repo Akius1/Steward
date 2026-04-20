@@ -158,20 +158,19 @@ export default function LoginScreen() {
   });
 
   // ── Theme-aware gradient stops ────────────────────────────────────────────────
-  const ctaGradient: [string, string] = isDark
-    ? ['#e9c349', '#aa890a']
-    : ['#aa890a', '#735c00'];
-  const ctaTextColor = isDark ? '#3c2f00' : '#ffe088';
+  // Burgundy is the primary CTA colour · gold text sits on top for premium feel
+  const ctaGradient: [string, string] = ['#4E0B0B', '#210909'];
+  const ctaTextColor = '#D4AF37'; // warm gold on deep burgundy
 
   // ── Theme-aware glow colours ──────────────────────────────────────────────────
-  const glowGold   = isDark ? 'rgba(233,195,73,0.09)'  : 'rgba(233,195,73,0.20)';
-  const glowSage   = isDark ? 'rgba(93,23,21,0.18)'    : 'rgba(255,218,216,0.60)';
-  const glowAccent = isDark ? 'rgba(233,195,73,0.05)'  : 'rgba(233,195,73,0.12)';
+  const glowGold   = isDark ? 'rgba(212,175,55,0.07)'  : 'rgba(212,175,55,0.12)';
+  const glowSage   = isDark ? 'rgba(78,11,11,0.28)'    : 'rgba(78,11,11,0.05)';
+  const glowAccent = isDark ? 'rgba(33,9,9,0.22)'      : 'rgba(153,68,62,0.06)';
 
   // ── Ring border tokens ────────────────────────────────────────────────────────
-  const r1Color = colors.gold + (isDark ? '2a' : '35');
-  const r2Color = colors.gold + (isDark ? '18' : '22');
-  const r3Color = colors.gold + (isDark ? '0e' : '15');
+  const r1Color = colors.gold + (isDark ? '2a' : '30');
+  const r2Color = colors.gold + (isDark ? '18' : '1e');
+  const r3Color = colors.gold + (isDark ? '0e' : '12');
 
   const s = StyleSheet.create({
     safe:   { flex: 1, backgroundColor: colors.bg },
@@ -401,7 +400,7 @@ export default function LoginScreen() {
             >
               <Text style={s.wordmark}>Steward</Text>
               <Text style={s.vaultHeading}>Enter the Vault.</Text>
-              <Text style={s.tagline}>Give every naira a purpose.</Text>
+              <Text style={s.tagline}>Give every coin a purpose.</Text>
             </Animated.View>
 
           </View>

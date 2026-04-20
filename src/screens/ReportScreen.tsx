@@ -7,18 +7,21 @@ import {
   StyleSheet,
   ActivityIndicator,
   Share,
-  Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Text as SvgText, Rect } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
 import { fmt } from '@/utils/currency';
 import type { IncomeSource, Allocation, Milestone } from '@/types/database';
+import WeeklyDigest from '@/src/components/WeeklyDigest';
 
 const MILESTONE_COLORS = ['#60A5FA','#10B97A','#C9943F','#A78BFA','#F472B6','#F59E0B','#34D399','#818CF8'];
 
@@ -83,6 +86,62 @@ function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
 }
 
 type GradeData = ReturnType<typeof calcGrade>;
+
+// ─── Smart Advisory Builder ────────────────────────────────────────────────────
+function buildSmartAdvisory(data: GradeData, actualSpends: Record<string, number>): string {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = now.getDate();
+  const daysLeft = daysInMonth - daysPassed;
+  const monthProgress = (daysPassed / daysInMonth) * 100;
+
+  const lines: string[] = [];
+
+  // Savings rate
+  if (data.savingsPct >= 20) {
+    lines.push(`Your savings rate of ${data.savingsPct.toFixed(0)}% is above the 20% benchmark — excellent discipline.`);
+  } else if (data.savingsPct > 0) {
+    lines.push(`Your savings rate of ${data.savingsPct.toFixed(0)}% is below the 20% target. Redirecting even ${Math.round(20 - data.savingsPct)}% more would make a significant difference over 12 months.`);
+  } else {
+    lines.push(`No savings allocation detected. Even a small starting rate of 10% builds the habit that leads to long-term financial freedom.`);
+  }
+
+  // Housing
+  if (data.housingPct > 30) {
+    lines.push(`Housing is at ${data.housingPct.toFixed(1)}% — ${(data.housingPct - 30).toFixed(1)}% above the safe ceiling. This constrains every other budget category.`);
+  } else if (data.housingPct > 28) {
+    lines.push(`Housing is at ${data.housingPct.toFixed(1)}% — near the 30% ceiling. Monitor it as any rent increase could tip the balance.`);
+  } else if (data.housingPct > 0) {
+    lines.push(`Housing is within the healthy 28–30% range. Well managed.`);
+  }
+
+  // Actual spend insights (if available)
+  const foodSpent = actualSpends['Food'] ?? 0;
+  const allocations = data;
+  if (foodSpent > 0 && monthProgress < 90) {
+    const foodBudgetApprox = data.totalAllocated * 0.10; // rough proxy
+    const foodRatio = foodBudgetApprox > 0 ? foodSpent / foodBudgetApprox : 0;
+    if (foodRatio > 0.8 && daysLeft > 7) {
+      lines.push(`Food spend is at ${Math.round(foodRatio * 100)}% of budget with ${daysLeft} days remaining — consider meal planning to avoid overage.`);
+    }
+  }
+
+  // Emergency fund
+  if (data.emergencyPct < 10) {
+    lines.push(`Emergency fund at ${data.emergencyPct.toFixed(1)}%. At this rate it will take ${data.emergencyPct > 0 ? Math.ceil(30 / data.emergencyPct) : '—'} months to reach 3-month coverage.`);
+  } else {
+    lines.push(`Emergency fund is being well-funded at ${data.emergencyPct.toFixed(1)}%. Keep the momentum.`);
+  }
+
+  // Income diversification
+  if (data.sourceCount === 1) {
+    lines.push(`Single income stream detected. A second source — even freelance — significantly reduces financial risk.`);
+  } else if (data.sourceCount >= 3) {
+    lines.push(`${data.sourceCount} income sources provide solid diversification. Continue to nurture each stream.`);
+  }
+
+  return lines.join(' ');
+}
 
 // fmt imported from utils/currency
 
@@ -183,10 +242,15 @@ function EmptyReport({ colors }: { colors: any }) {
 export default function ReportScreen() {
   const { colors, isDark } = useTheme();
   const { user, household, currency } = useAuth();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GradeData | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [actualSpends, setActualSpends] = useState<Record<string, number>>({});
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showWeeklyDigest, setShowWeeklyDigest] = useState(false);
+  const [trendScores, setTrendScores] = useState<{ label: string; score: number }[]>([]);
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -203,14 +267,51 @@ export default function ReportScreen() {
     const allQ = household
       ? db.from('allocations').select('*').eq('household_id', household.id).eq('month', month).eq('year', year)
       : db.from('allocations').select('*').eq('user_id', user.id).is('household_id', null).eq('month', month).eq('year', year);
-    const mlQ = db.from('milestones').select('*').eq('user_id', user.id).order('created_at', { ascending: true }).limit(4);
+    const mlQ = household
+      ? db.from('milestones').select('*').eq('household_id', household.id).order('created_at', { ascending: true }).limit(4)
+      : db.from('milestones').select('*').eq('user_id', user.id).is('household_id', null).order('created_at', { ascending: true }).limit(4);
 
-    const [{ data: sources }, { data: allocs }, { data: mls }] = await Promise.all([srcQ, allQ, mlQ]);
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const nextM = month === 12 ? 1 : month + 1;
+    const nextY = month === 12 ? year + 1 : year;
+    const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+    let txnQ = db.from('transactions').select('category, amount').eq('type', 'expense').gte('date', start).lt('date', end);
+    txnQ = household ? txnQ.eq('household_id', household.id) : txnQ.eq('user_id', user.id).is('household_id', null);
+
+    const [{ data: sources }, { data: allocs }, { data: mls }, { data: txns }] = await Promise.all([srcQ, allQ, mlQ, txnQ]);
 
     if (sources && allocs) {
       setData(calcGrade(sources, allocs));
+
+      // Build 6-month grade trend using current sources as income proxy
+      if (sources.length > 0) {
+        const trend: { label: string; score: number }[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const m = d.getMonth() + 1;
+          const y = d.getFullYear();
+          let q = db.from('allocations').select('*').eq('month', m).eq('year', y);
+          q = household ? q.eq('household_id', household.id) : q.eq('user_id', user.id).is('household_id', null);
+          const { data: histAllocs } = await q;
+          if (histAllocs && histAllocs.length > 0) {
+            const { total } = calcGrade(sources, histAllocs);
+            trend.push({ label: d.toLocaleString('en-NG', { month: 'short' }), score: total });
+          } else {
+            trend.push({ label: d.toLocaleString('en-NG', { month: 'short' }), score: 0 });
+          }
+        }
+        setTrendScores(trend);
+      }
     }
     if (mls) setMilestones(mls);
+
+    // Aggregate actual spends by category
+    const sums: Record<string, number> = {};
+    for (const row of (txns ?? []) as Array<{ category: string; amount: number }>) {
+      sums[row.category] = (sums[row.category] ?? 0) + row.amount;
+    }
+    setActualSpends(sums);
+
     setLoading(false);
   }, [user, household, month, year]);
 
@@ -277,6 +378,141 @@ export default function ReportScreen() {
               })}
             </View>
           </View>
+
+          {/* 6-Month Score Trend */}
+          {trendScores.some((t) => t.score > 0) && (
+            <View style={s.section}>
+              <Text style={s.sectionTitle}>Score Trend</Text>
+              <View style={[s.dimensionsCard, { padding: 16 }]}>
+                {(() => {
+                  const W = 280;
+                  const H = 64;
+                  const pad = 8;
+                  const validScores = trendScores.filter((t) => t.score > 0);
+                  const maxScore = Math.max(...validScores.map((t) => t.score), 1);
+                  const barW = (W - pad * 2) / trendScores.length - 4;
+
+                  return (
+                    <View style={{ alignItems: 'center' }}>
+                      <Svg width={W} height={H + 20}>
+                        {trendScores.map((t, i) => {
+                          const barH = t.score > 0 ? Math.max((t.score / 100) * H, 4) : 2;
+                          const x = pad + i * ((W - pad * 2) / trendScores.length) + 2;
+                          const y = H - barH;
+                          const barColor = t.score >= 80 ? '#10B97A' : t.score >= 65 ? '#D4AF37' : t.score >= 50 ? '#F59E0B' : t.score > 0 ? '#EF4444' : '#E5E7EB';
+                          return (
+                            <React.Fragment key={i}>
+                              <Rect
+                                x={x} y={y} width={barW} height={barH}
+                                rx={3} fill={barColor}
+                                opacity={t.score > 0 ? 1 : 0.3}
+                              />
+                              <SvgText
+                                x={x + barW / 2} y={H + 14}
+                                fontSize={8} fill={isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)'}
+                                textAnchor="middle" fontFamily={FONTS.medium}
+                              >
+                                {t.label}
+                              </SvgText>
+                              {t.score > 0 && (
+                                <SvgText
+                                  x={x + barW / 2} y={y - 3}
+                                  fontSize={7} fill={barColor}
+                                  textAnchor="middle" fontFamily={FONTS.semibold}
+                                >
+                                  {t.score}
+                                </SvgText>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </Svg>
+                    </View>
+                  );
+                })()}
+              </View>
+            </View>
+          )}
+
+          {/* Grade History & Streaks */}
+          {trendScores.some((t) => t.score > 0) && (() => {
+            // Compute current streak (consecutive months from most recent with score >= 75)
+            const reversed = [...trendScores].reverse();
+            let streak = 0;
+            for (const t of reversed) {
+              if (t.score >= 75) streak++;
+              else if (t.score > 0) break; // scored but below B — streak broken
+            }
+            const best = Math.max(...trendScores.filter((t) => t.score > 0).map((t) => t.score));
+            const gradeHistory = trendScores.filter((t) => t.score > 0).reverse();
+
+            const letterForScore = (s: number) =>
+              s >= 93 ? 'A+' : s >= 87 ? 'A' : s >= 83 ? 'A-' : s >= 80 ? 'B+' :
+              s >= 75 ? 'B' : s >= 70 ? 'B-' : s >= 65 ? 'C+' : s >= 60 ? 'C' :
+              s >= 55 ? 'C-' : s >= 50 ? 'D' : 'F';
+
+            const colorForScore = (s: number) =>
+              s >= 80 ? colors.success : s >= 65 ? colors.gold : s >= 50 ? colors.warning : colors.danger;
+
+            return (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Grade History</Text>
+
+                {/* Streak badge row */}
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                  <View style={[s.streakCard, { backgroundColor: streak >= 3 ? colors.goldBg : colors.card, borderColor: streak >= 3 ? colors.gold + '55' : colors.border }]}>
+                    <Text style={{ fontSize: 22 }}>{streak >= 3 ? '🔥' : streak >= 1 ? '⚡' : '💤'}</Text>
+                    <View>
+                      <Text style={{ fontFamily: FONTS.display, fontSize: 22, color: streak >= 1 ? colors.gold : colors.textMuted, lineHeight: 26 }}>
+                        {streak}
+                      </Text>
+                      <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: colors.textMuted }}>
+                        {streak === 1 ? 'month streak' : 'month streak'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[s.streakCard, { flex: 1, backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Ionicons name="trophy-outline" size={22} color={colors.gold} />
+                    <View>
+                      <Text style={{ fontFamily: FONTS.display, fontSize: 22, color: colors.gold, lineHeight: 26 }}>
+                        {letterForScore(best)}
+                      </Text>
+                      <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: colors.textMuted }}>
+                        best grade
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Month-by-month history list */}
+                <View style={[s.alertsCard]}>
+                  {gradeHistory.map((t, i) => {
+                    const letter = letterForScore(t.score);
+                    const gc = colorForScore(t.score);
+                    return (
+                      <View key={t.label}>
+                        {i > 0 && <View style={s.divider} />}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: gc + '18', borderWidth: 1, borderColor: gc + '44', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontFamily: FONTS.display, fontSize: 18, color: gc, lineHeight: 22 }}>{letter}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary }}>{t.label}</Text>
+                            <View style={{ height: 3, borderRadius: 2, backgroundColor: colors.border, marginTop: 5, overflow: 'hidden' }}>
+                              <View style={{ width: `${t.score}%` as any, height: 3, backgroundColor: gc, borderRadius: 2 }} />
+                            </View>
+                          </View>
+                          <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: gc, minWidth: 36, textAlign: 'right' }}>
+                            {t.score}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Threshold Alerts */}
           <View style={s.section}>
@@ -409,15 +645,15 @@ export default function ReportScreen() {
           <View style={s.section}>
             <Text style={s.sectionTitle}>Steward Advisory</Text>
             <LinearGradient
-              colors={isDark ? ['#2e1413', '#3f2221'] : ['#7a5a1a', '#9a7232']}
+              colors={isDark ? ['#2e1413', '#4E0B0B'] : ['#7B1515', '#4E0B0B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[s.advisoryCard, { borderColor: colors.goldDim }]}
+              style={[s.advisoryCard, { borderColor: colors.burgundy + '55' }]}
             >
-              <View style={[s.advisoryStripe, { backgroundColor: 'rgba(235,192,118,0.6)' }]} />
+              <View style={[s.advisoryStripe, { backgroundColor: 'rgba(212,175,55,0.50)' }]} />
               <View style={s.advisoryTop}>
-                <View style={[s.advisoryIconWrap, { backgroundColor: 'rgba(255,255,255,0.12)' }]}>
-                  <Ionicons name="sparkles-outline" size={18} color="#ffe088" />
+                <View style={[s.advisoryIconWrap, { backgroundColor: 'rgba(212,175,55,0.18)' }]}>
+                  <Ionicons name="sparkles-outline" size={18} color="#D4AF37" />
                 </View>
                 <Text style={[s.advisoryTitle, { color: 'rgba(255,255,255,0.92)' }]}>Steward Advisory</Text>
                 <Text style={[s.advisoryMeta, { color: 'rgba(255,255,255,0.55)' }]}>
@@ -425,43 +661,224 @@ export default function ReportScreen() {
                 </Text>
               </View>
               <Text style={[s.advisoryText, { color: 'rgba(255,255,255,0.82)' }]}>
-                {'"'}
-                {data!.savingsPct >= 20
-                  ? `Your savings rate of ${data!.savingsPct.toFixed(0)}% is commendable — above the 20% benchmark. `
-                  : `Your savings rate is ${data!.savingsPct.toFixed(0)}% — below the 20% target. Consider reallocating from entertainment to savings. `}
-                {data!.housingPct > 30
-                  ? `Your housing cost exceeds the 30% safe ceiling by ${(data!.housingPct - 30).toFixed(1)}%. You need ${fmt(Math.round(data!.totalIncome * (100 / 28) - data!.totalIncome), currency)} more monthly income for this to be comfortable. `
-                  : data!.housingPct > 28
-                  ? `Housing is near the 30% threshold. Monitor this closely. `
-                  : `Housing is within the safe 28–30% range. `}
-                {data!.emergencyPct < 10
-                  ? `Your emergency fund contribution is low. Aim for 10–15% to build 3 months of coverage within a year.`
-                  : `Your emergency fund is being well-funded. Keep the momentum.`}
-                {'"'}
+                {`"${buildSmartAdvisory(data!, actualSpends)}"`}
               </Text>
             </LinearGradient>
           </View>
 
-          {/* Download CTA */}
+          {/* Share Grade Card + Export Report CTAs */}
           <View style={s.section}>
-            <TouchableOpacity
-              style={[s.downloadBtn, { borderWidth: 1.5, borderColor: colors.gold }]}
-              activeOpacity={0.85}
-              onPress={() =>
-                Alert.alert('Coming Soon', 'PDF download will be available in the next update.')
-              }
-            >
-              <Ionicons name="document-text-outline" size={20} color={colors.gold} />
-              <Text style={[s.downloadText, { color: colors.gold }]}>
-                Download Report PDF
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[s.downloadBtn, { backgroundColor: colors.burgundy, borderWidth: 0, flex: 1 }]}
+                activeOpacity={0.85}
+                onPress={() => setShowShareModal(true)}
+              >
+                <Ionicons name="share-social-outline" size={18} color={colors.gold} />
+                <Text style={[s.downloadText, { color: colors.gold, fontSize: 14 }]}>
+                  Share Grade
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.downloadBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const monthLabel = now.toLocaleString('en-NG', { month: 'long', year: 'numeric' });
+                  const spendLines = Object.entries(actualSpends).length > 0
+                    ? Object.entries(actualSpends)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([cat, amt]) => `  ${cat.padEnd(14)} ${fmt(amt, currency)}`)
+                        .join('\n')
+                    : '  No transactions recorded';
+                  const dimLines = data!.dimensions
+                    .map((d) => `  ${d.label.padEnd(24)} ${d.score}/${d.max}`)
+                    .join('\n');
+                  Share.share({
+                    title: `Steward Report — ${monthLabel}`,
+                    message: [
+                      `STEWARD FINANCIAL REPORT`,
+                      `${monthLabel}`,
+                      ``,
+                      `GRADE: ${data!.grade}   SCORE: ${data!.total}/100`,
+                      ``,
+                      `--- SCORE BREAKDOWN ---`,
+                      dimLines,
+                      ``,
+                      `--- KEY METRICS ---`,
+                      `  Income Allocated:  ${data!.allocPct.toFixed(0)}%`,
+                      `  Savings Rate:      ${data!.savingsPct.toFixed(0)}%`,
+                      `  Housing:           ${data!.housingPct.toFixed(0)}%`,
+                      `  Emergency Fund:    ${data!.emergencyPct.toFixed(0)}%`,
+                      `  Income Sources:    ${data!.sourceCount}`,
+                      `  Total Income:      ${fmt(data!.totalIncome, currency)}`,
+                      ``,
+                      `--- ACTUAL SPENDING ---`,
+                      spendLines,
+                      ``,
+                      `Generated by Steward · stewardapp.com`,
+                    ].join('\n'),
+                  });
+                }}
+              >
+                <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+                <Text style={[s.downloadText, { color: colors.textSecondary, fontSize: 14 }]}>
+                  Export Report
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Text style={[s.downloadHint, { color: colors.textMuted }]}>
-              Shareable · Branded PDF · Coming soon
+              Share grade card or export full text report
             </Text>
+          </View>
+
+          {/* Quick action cards — AI Coach + Weekly Digest */}
+          <View style={[s.section, { flexDirection: 'row', gap: 10 }]}>
+            <TouchableOpacity
+              style={[s.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+              activeOpacity={0.8}
+              onPress={() => router.push('/ai-coach' as any)}
+            >
+              <LinearGradient colors={['rgba(78,11,11,0.18)', 'rgba(78,11,11,0.06)']} style={s.quickActionIcon}>
+                <Ionicons name="sparkles" size={20} color={colors.burgundy} />
+              </LinearGradient>
+              <Text style={[s.quickActionTitle, { color: colors.textPrimary }]}>AI Coach</Text>
+              <Text style={[s.quickActionSub, { color: colors.textMuted }]}>Ask anything</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.quickActionCard, { backgroundColor: colors.card, borderColor: colors.border, flex: 1 }]}
+              activeOpacity={0.8}
+              onPress={() => setShowWeeklyDigest(true)}
+            >
+              <LinearGradient colors={['rgba(212,175,55,0.18)', 'rgba(212,175,55,0.06)']} style={s.quickActionIcon}>
+                <Ionicons name="newspaper-outline" size={20} color={colors.gold} />
+              </LinearGradient>
+              <Text style={[s.quickActionTitle, { color: colors.textPrimary }]}>Weekly Digest</Text>
+              <Text style={[s.quickActionSub, { color: colors.textMuted }]}>This week's recap</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       )}
+
+      <WeeklyDigest visible={showWeeklyDigest} onClose={() => setShowWeeklyDigest(false)} />
+
+      {/* ── Share Grade Card Modal ────────────────────────────── */}
+      <Modal
+        visible={showShareModal && data !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowShareModal(false)}
+      >
+        <View style={s.modalOverlay}>
+          <LinearGradient
+            colors={['#4E0B0B', '#210909']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.shareCard}
+          >
+            {/* Gold stripe accent */}
+            <View style={{ height: 3, backgroundColor: colors.gold, borderRadius: 2, marginBottom: 20, opacity: 0.8 }} />
+
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: 'rgba(212,175,55,0.7)', letterSpacing: 3, marginBottom: 2 }}>
+                  W·A·E·C  REPORT CARD
+                </Text>
+                <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
+                  Steward Financial Intelligence
+                </Text>
+              </View>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(212,175,55,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="sparkles-outline" size={18} color="#D4AF37" />
+              </View>
+            </View>
+
+            {/* Grade display */}
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+              <View style={{
+                width: 120, height: 120, borderRadius: 60,
+                borderWidth: 6, borderColor: '#D4AF37',
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'rgba(212,175,55,0.10)',
+              }}>
+                <Text style={{ fontFamily: FONTS.display, fontSize: 52, color: '#D4AF37', lineHeight: 58 }}>
+                  {data!.grade}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: 'rgba(255,255,255,0.70)', marginTop: 10 }}>
+                Score{' '}
+                <Text style={{ fontFamily: FONTS.display, fontSize: 22, color: '#D4AF37' }}>{data!.total}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.40)' }}> / 100</Text>
+              </Text>
+              <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.40)', marginTop: 4 }}>
+                {now.toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+              </Text>
+            </View>
+
+            {/* Stats grid */}
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
+              {[
+                { label: 'Allocation', value: `${data!.allocPct.toFixed(0)}%` },
+                { label: 'Savings Rate', value: `${data!.savingsPct.toFixed(0)}%` },
+                { label: 'Housing', value: `${data!.housingPct.toFixed(0)}%` },
+                { label: 'Emergency', value: `${data!.emergencyPct.toFixed(0)}%` },
+              ].map((stat) => (
+                <View
+                  key={stat.label}
+                  style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, padding: 10, alignItems: 'center' }}
+                >
+                  <Text style={{ fontFamily: FONTS.display, fontSize: 16, color: '#D4AF37' }}>{stat.value}</Text>
+                  <Text style={{ fontFamily: FONTS.regular, fontSize: 9, color: 'rgba(255,255,255,0.45)', marginTop: 2, textAlign: 'center' }}>{stat.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Score bar */}
+            <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, marginBottom: 4, overflow: 'hidden' }}>
+              <View style={{ width: `${data!.total}%` as any, height: 4, backgroundColor: '#D4AF37', borderRadius: 2 }} />
+            </View>
+            <Text style={{ fontFamily: FONTS.regular, fontSize: 10, color: 'rgba(255,255,255,0.35)', marginBottom: 20, textAlign: 'center' }}>
+              stewardapp.com
+            </Text>
+
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#D4AF37', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                activeOpacity={0.85}
+                onPress={() => {
+                  const monthLabel = now.toLocaleString('en-NG', { month: 'long', year: 'numeric' });
+                  Share.share({
+                    title: 'My Steward Financial Grade',
+                    message: [
+                      `🏆 STEWARD FINANCIAL REPORT — ${monthLabel}`,
+                      `━━━━━━━━━━━━━━━━━━`,
+                      `Grade: ${data!.grade}   Score: ${data!.total}/100`,
+                      `━━━━━━━━━━━━━━━━━━`,
+                      `💰 Income Allocated: ${data!.allocPct.toFixed(0)}%`,
+                      `📊 Savings Rate: ${data!.savingsPct.toFixed(0)}%`,
+                      `🏠 Housing: ${data!.housingPct.toFixed(0)}%`,
+                      `🛡 Emergency Fund: ${data!.emergencyPct.toFixed(0)}%`,
+                      `━━━━━━━━━━━━━━━━━━`,
+                      `Give every coin a purpose — stewardapp.com`,
+                    ].join('\n'),
+                  });
+                }}
+              >
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: '#210909' }}>Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, borderWidth: 1, borderColor: 'rgba(212,175,55,0.40)', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                activeOpacity={0.85}
+                onPress={() => setShowShareModal(false)}
+              >
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: 'rgba(212,175,55,0.70)' }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -515,6 +932,11 @@ function makeStyles(colors: any, isDark: boolean) {
     statusText: { fontFamily: FONTS.semibold, fontSize: 9, letterSpacing: 0.5 },
     alertValue: { fontFamily: FONTS.semibold, fontSize: 13, color: colors.textPrimary },
 
+    streakCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      borderRadius: 14, padding: 14, borderWidth: 1,
+    },
+
     emptyGoals: { fontFamily: FONTS.regular, fontSize: 13, textAlign: 'center', paddingVertical: 16, fontStyle: 'italic' },
     milestoneRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 14, paddingVertical: 14, gap: 10 },
     milestoneIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -544,5 +966,22 @@ function makeStyles(colors: any, isDark: boolean) {
     },
     downloadText: { fontFamily: FONTS.semibold, fontSize: 15 },
     downloadHint: { fontFamily: FONTS.regular, fontSize: 12, textAlign: 'center', marginTop: 4 },
+
+    quickActionCard: {
+      borderRadius: 16, borderWidth: isDark ? 1 : 0, padding: 16, alignItems: 'flex-start',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
+    },
+    quickActionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+    quickActionTitle: { fontFamily: FONTS.semibold, fontSize: 14, marginBottom: 2 },
+    quickActionSub: { fontFamily: FONTS.regular, fontSize: 11 },
+
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    },
+    shareCard: {
+      width: '100%', maxWidth: 380, borderRadius: 24, padding: 24,
+    },
   });
 }

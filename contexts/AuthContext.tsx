@@ -16,6 +16,7 @@ interface AuthCtxValue {
   refreshProfile: () => Promise<void>;
   refreshHousehold: () => Promise<void>;
   setCurrency: (c: CurrencyCode) => Promise<void>;
+  markOnboardingDone: () => Promise<void>;
 }
 
 const AuthCtx = createContext<AuthCtxValue | null>(null);
@@ -134,6 +135,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHouseholdMembers([]);
   }
 
+  async function markOnboardingDone() {
+    if (!session?.user) return;
+    await (supabase as any)
+      .from('profiles')
+      .update({ onboarding_done: true })
+      .eq('id', session.user.id);
+    setProfile((p) => (p ? { ...p, onboarding_done: true } : p));
+  }
+
   return (
     <AuthCtx.Provider value={{
       session,
@@ -147,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile,
       refreshHousehold,
       setCurrency,
+      markOnboardingDone,
     }}>
       {children}
     </AuthCtx.Provider>

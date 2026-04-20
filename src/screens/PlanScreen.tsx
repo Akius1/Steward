@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// @ts-ignore
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -837,7 +839,7 @@ function FeaturedMilestoneCard({
       style={{ borderRadius: 24, overflow: 'hidden', marginBottom: 12 }}
     >
       <LinearGradient
-        colors={isDark ? ['#2e1413', '#3f2221'] : ['#7a5a1a', '#9a7232']}
+        colors={isDark ? ['#2e1413', '#4E0B0B'] : ['#7B1515', '#4E0B0B']}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ padding: 24 }}
       >
@@ -1090,6 +1092,7 @@ function FundCard({
 export default function PlanScreen() {
   const { colors, isDark } = useTheme();
   const { user, household, currency } = useAuth();
+  const router = useRouter();
 
   const [segment, setSegment] = useState<'milestones' | 'funds'>('milestones');
 
@@ -1339,12 +1342,28 @@ export default function PlanScreen() {
           }}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={['#e9c349', '#aa890a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroAddGrad}>
+          <LinearGradient colors={['#D4AF37', '#B38F2D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.heroAddGrad}>
             <Ionicons name="add" size={16} color="#3c2f00" />
             <Text style={s.heroAddTxt}>NEW GOAL</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Debt Planner shortcut */}
+      <TouchableOpacity
+        style={[s.debtPlannerBanner, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={() => router.push('/debt-planner' as any)}
+        activeOpacity={0.8}
+      >
+        <View style={[s.debtPlannerIcon, { backgroundColor: colors.goldBg }]}>
+          <Ionicons name="card-outline" size={18} color={colors.gold} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.debtPlannerTitle, { color: colors.textPrimary }]}>Debt Payoff Planner</Text>
+          <Text style={[s.debtPlannerSub, { color: colors.textMuted }]}>Avalanche & Snowball calculator</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      </TouchableOpacity>
 
       {/* Underline tab control */}
       <View style={s.tabRow}>
@@ -1399,7 +1418,7 @@ export default function PlanScreen() {
                   onPress={() => { setEditingMilestone(null); setShowAddMilestone(true); }}
                   activeOpacity={0.85}
                 >
-                  <LinearGradient colors={['#e9c349', '#aa890a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.emptyBtn}>
+                  <LinearGradient colors={['#D4AF37', '#B38F2D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.emptyBtn}>
                     <Ionicons name="add" size={16} color="#3c2f00" />
                     <Text style={s.emptyBtnText}>Add Life Goal</Text>
                   </LinearGradient>
@@ -1591,6 +1610,15 @@ function makeStyles(colors: any, isDark: boolean) {
     heroSubtitle: {
       fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, lineHeight: 20,
     },
+    debtPlannerBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      marginHorizontal: 20, marginBottom: 8, borderRadius: 14,
+      borderWidth: isDark ? 1 : 0, padding: 14,
+    },
+    debtPlannerIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    debtPlannerTitle: { fontFamily: FONTS.semibold, fontSize: 14, marginBottom: 1 },
+    debtPlannerSub: { fontFamily: FONTS.regular, fontSize: 11 },
+
     heroAddBtn: { marginTop: 8, flexShrink: 0 },
     heroAddGrad: {
       borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
