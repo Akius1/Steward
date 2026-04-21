@@ -814,8 +814,9 @@ function TaxReserveSheet({ visible, onClose, sources, colors, isDark, currency, 
   // ── Derived income split ────────────────────────────────────────────────────
   // Salary sources → gross/net question applies
   // Other sources (Freelance, Business, Gift, Side Income) → always gross, always taxed
-  const salarySources = sources.filter((s) => SALARY_TYPES.includes(s.type as IncomeType));
-  const otherSources  = sources.filter((s) => OTHER_TYPES.includes(s.type as IncomeType));
+  const safeSources   = sources ?? [];
+  const salarySources = safeSources.filter((s) => SALARY_TYPES.includes(s.type as IncomeType));
+  const otherSources  = safeSources.filter((s) => OTHER_TYPES.includes(s.type as IncomeType));
   const monthlySalaryDefault = Math.round(salarySources.reduce((a, s) => a + s.amount, 0));
   const monthlyOther         = Math.round(otherSources.reduce((a, s) => a + s.amount, 0));
 
@@ -1419,7 +1420,7 @@ export default function IncomeSetupScreen() {
       <TaxReserveSheet
         visible={showTaxReserve}
         onClose={() => setShowTaxReserve(false)}
-        totalMonthlyIncome={totalIncome}
+        sources={sources}
         colors={colors}
         isDark={isDark}
         currency={currency}
