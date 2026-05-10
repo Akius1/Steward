@@ -1,13 +1,13 @@
 import type { CurrencyCode } from '@/utils/currency';
 
-export type IncomeType = 'SALARY' | 'FREELANCE' | 'BUSINESS' | 'GIFT' | 'SIDE INCOME';
+export type IncomeType = 'SALARY' | 'FREELANCE' | 'BUSINESS' | 'GIFT' | 'SIDE INCOME' | (string & {});
 
 export interface IncomeSource {
   id: string;
   user_id: string;
   household_id: string | null;
   name: string;
-  type: IncomeType;
+  type: string;
   amount: number;
   subtitle: string | null;
   created_at: string;

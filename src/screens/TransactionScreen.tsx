@@ -246,12 +246,14 @@ function TransactionRow({
   colors,
   isDark,
   currency,
+  onPress,
   onLongPress,
 }: {
   item: Transaction;
   colors: any;
   isDark: boolean;
   currency: string;
+  onPress: (item: Transaction) => void;
   onLongPress: (id: string) => void;
 }) {
   const meta = CATEGORY_META[item.category] ?? CATEGORY_META['Other'];
@@ -262,6 +264,7 @@ function TransactionRow({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
+      onPress={() => onPress(item)}
       onLongPress={() => onLongPress(item.id)}
       style={{
         flexDirection: 'row',
@@ -325,6 +328,8 @@ function AddTransactionModal({
   userId,
   householdId,
   onAdded,
+  transaction,
+  onDeleted,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -334,12 +339,17 @@ function AddTransactionModal({
   userId: string;
   householdId: string | null;
   onAdded: () => void;
+  transaction?: Transaction;
+  onDeleted?: () => void;
 }) {
+  const isEdit = !!transaction;
   const insets = useSafeAreaInsets();
 
   const [txType, setTxType] = useState<TransactionType>('expense');
   const [amountText, setAmountText] = useState('');
   const [category, setCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+  const [isCustom, setIsCustom] = useState(false);
   const [note, setNote] = useState('');
   const [dateChoice, setDateChoice] = useState<'today' | 'yesterday' | 'other'>('today');
   const [otherDate, setOtherDate] = useState('');
@@ -350,8 +360,28 @@ function AddTransactionModal({
   const cats = txType === 'income' ? INCOME_CATS : EXPENSE_CATS;
 
   useEffect(() => {
-    if (category && !cats.includes(category)) setCategory('');
+    if (category && !cats.includes(category) && !isCustom) setCategory('');
   }, [txType]);
+
+  // Pre-fill fields when opening in edit mode
+  useEffect(() => {
+    if (visible && transaction) {
+      setTxType(transaction.type);
+      setAmountText(String(transaction.amount));
+      const isKnownCat = [...INCOME_CATS, ...EXPENSE_CATS].includes(transaction.category);
+      if (isKnownCat) {
+        setCategory(transaction.category);
+        setIsCustom(false);
+      } else {
+        setIsCustom(true);
+        setCustomCategory(transaction.category);
+      }
+      setNote(transaction.note ?? '');
+      setDateChoice('other');
+      setOtherDate(transaction.date.split('-').reverse().join('/'));
+    }
+    if (!visible) reset();
+  }, [visible]);
 
   function getDateString(): string {
     const today = new Date();
@@ -374,6 +404,8 @@ function AddTransactionModal({
     setTxType('expense');
     setAmountText('');
     setCategory('');
+    setCustomCategory('');
+    setIsCustom(false);
     setNote('');
     setDateChoice('today');
     setOtherDate('');
@@ -388,32 +420,44 @@ function AddTransactionModal({
 
   async function handleSubmit() {
     const amount = parseInput(amountText);
+    const effectiveCategory = isCustom ? customCategory.trim() : category;
     if (amount <= 0) { Alert.alert('Invalid amount', 'Enter an amount greater than 0.'); return; }
-    if (!category)   { Alert.alert('Category required', 'Pick a category.'); return; }
+    if (!effectiveCategory) { Alert.alert('Category required', 'Pick a category or enter a custom one.'); return; }
 
     setSaving(true);
-    const { error } = await (supabase as any).from('transactions').insert({
-      user_id: userId,
-      household_id: householdId,
-      type: txType,
-      amount,
-      category,
-      note: note.trim() || null,
-      date: getDateString(),
-    });
+    let error: any;
+    if (isEdit && transaction) {
+      ({ error } = await (supabase as any).from('transactions').update({
+        type: txType,
+        amount,
+        category: effectiveCategory,
+        note: note.trim() || null,
+        date: getDateString(),
+      }).eq('id', transaction.id));
+    } else {
+      ({ error } = await (supabase as any).from('transactions').insert({
+        user_id: userId,
+        household_id: householdId,
+        type: txType,
+        amount,
+        category: effectiveCategory,
+        note: note.trim() || null,
+        date: getDateString(),
+      }));
+    }
     setSaving(false);
 
     if (error) { Alert.alert('Failed to save', error.message); return; }
 
-    // Save recurring template if enabled
-    if (isRecurring) {
+    // Save recurring template if enabled (add mode only)
+    if (!isEdit && isRecurring) {
       const templates = await loadTemplates();
       const today = new Date().toISOString().slice(0, 10);
       const template: RecurringTemplate = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         type: txType,
         amount: parseInput(amountText),
-        category,
+        category: effectiveCategory,
         note: note.trim() || '',
         frequency,
         lastLoggedDate: today,
@@ -475,10 +519,36 @@ function AddTransactionModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8 }}
           >
-            {/* Title */}
-            <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 16, marginTop: 4 }}>
-              Log Transaction
-            </Text>
+            {/* Title row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 4 }}>
+              <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, flex: 1 }}>
+                {isEdit ? 'Edit Transaction' : 'Log Transaction'}
+              </Text>
+              {isEdit && (
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert('Delete transaction', 'Remove this transaction?', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete', style: 'destructive',
+                        onPress: async () => {
+                          await (supabase as any).from('transactions').delete().eq('id', transaction!.id);
+                          handleClose();
+                          onDeleted?.();
+                        },
+                      },
+                    ]);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ marginRight: 12 }}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
             {/* Income / Expense toggle */}
             <View style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 14, padding: 4, marginBottom: 24 }}>
@@ -537,16 +607,16 @@ function AddTransactionModal({
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-              style={{ marginBottom: 20 }}
+              style={{ marginBottom: isCustom ? 10 : 20 }}
               keyboardShouldPersistTaps="handled"
             >
               {cats.map((cat) => {
                 const meta = CATEGORY_META[cat];
-                const active = category === cat;
+                const active = !isCustom && category === cat;
                 return (
                   <TouchableOpacity
                     key={cat}
-                    onPress={() => setCategory(cat)}
+                    onPress={() => { setCategory(cat); setIsCustom(false); }}
                     activeOpacity={0.8}
                     style={{
                       flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -563,7 +633,40 @@ function AddTransactionModal({
                   </TouchableOpacity>
                 );
               })}
+
+              {/* Custom category chip */}
+              <TouchableOpacity
+                onPress={() => { setIsCustom(true); setCategory(''); }}
+                activeOpacity={0.8}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+                  backgroundColor: isCustom ? colors.gold + '22' : colors.surface,
+                  borderWidth: 1.5,
+                  borderColor: isCustom ? colors.gold : colors.border,
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={14} color={isCustom ? colors.gold : colors.textMuted} />
+                <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: isCustom ? colors.gold : colors.textSecondary }}>
+                  Custom
+                </Text>
+              </TouchableOpacity>
             </ScrollView>
+
+            {/* Custom category text input */}
+            {isCustom && (
+              <TextInput
+                style={{ ...inputStyle, marginBottom: 20 }}
+                placeholder="Enter category name"
+                placeholderTextColor={colors.textMuted}
+                value={customCategory}
+                onChangeText={setCustomCategory}
+                returnKeyType="done"
+                maxLength={40}
+                cursorColor={colors.gold}
+                autoFocus
+              />
+            )}
 
             {/* Note */}
             <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
@@ -692,7 +795,9 @@ function AddTransactionModal({
             >
               {saving
                 ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} size="small" />
-                : <Text style={{ fontFamily: FONTS.semibold, fontSize: 16, color: isDark ? colors.bg : '#FFF' }}>Log Transaction</Text>
+                : <Text style={{ fontFamily: FONTS.semibold, fontSize: 16, color: isDark ? colors.bg : '#FFF' }}>
+                    {isEdit ? 'Save Changes' : 'Log Transaction'}
+                  </Text>
               }
             </TouchableOpacity>
           </ScrollView>
@@ -1115,6 +1220,7 @@ export default function TransactionScreen({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | undefined>();
 
   const insets = useSafeAreaInsets();
 
@@ -1330,6 +1436,7 @@ export default function TransactionScreen({ onClose }: Props) {
           colors={colors}
           isDark={isDark}
           currency={currency}
+          onPress={(item) => { setEditingTransaction(item); setShowAddModal(true); }}
           onLongPress={handleLongPress}
         />
       </View>
@@ -1342,36 +1449,40 @@ export default function TransactionScreen({ onClose }: Props) {
 
       {/* ── Header ──────────────────────────────────────────── */}
       <View style={s.header}>
-        {/* Close button — left side on Android feels more natural & always visible */}
-        <TouchableOpacity
-          onPress={handleClose}
-          style={s.closeBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-
-        <Text style={s.headerTitle}>Transactions</Text>
-
-        {/* Import bank statement */}
-        <TouchableOpacity
-          onPress={() => setShowImportModal(true)}
-          style={[s.closeBtn, { marginRight: 2 }]}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="cloud-upload-outline" size={17} color={colors.textPrimary} />
-        </TouchableOpacity>
-
-        <View style={s.monthNav}>
-          <TouchableOpacity onPress={prevMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+        {/* Row 1: Title left, close right */}
+        <View style={s.headerRow}>
+          <Text style={s.headerTitle}>Transactions</Text>
+          <TouchableOpacity
+            onPress={handleClose}
+            style={s.closeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={s.monthLabel}>{monthLabel(viewMonth, viewYear)}</Text>
-          <TouchableOpacity onPress={nextMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
+        </View>
+
+        {/* Row 2: Import button left, month nav right */}
+        <View style={s.headerRow}>
+          <TouchableOpacity
+            onPress={() => setShowImportModal(true)}
+            style={s.importBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="download-outline" size={16} color={colors.textPrimary} />
+            <Text style={s.importBtnText}>Import</Text>
           </TouchableOpacity>
+
+          <View style={s.monthNav}>
+            <TouchableOpacity onPress={prevMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={s.monthLabel}>{monthLabel(viewMonth, viewYear)}</Text>
+            <TouchableOpacity onPress={nextMonth} style={s.navBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -1428,6 +1539,7 @@ export default function TransactionScreen({ onClose }: Props) {
         style={[s.fab, { bottom: Math.max(insets.bottom, 16) + 16 }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setEditingTransaction(undefined);
           setShowAddModal(true);
         }}
         activeOpacity={0.85}
@@ -1439,13 +1551,15 @@ export default function TransactionScreen({ onClose }: Props) {
       {user && (
         <AddTransactionModal
           visible={showAddModal}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => { setShowAddModal(false); setEditingTransaction(undefined); }}
           colors={colors}
           isDark={isDark}
           currency={currency}
           userId={user.id}
           householdId={household?.id ?? null}
           onAdded={load}
+          transaction={editingTransaction}
+          onDeleted={() => { setTransactions((prev) => prev.filter((t) => t.id !== editingTransaction?.id)); }}
         />
       )}
 
@@ -1473,18 +1587,47 @@ function makeStyles(colors: any, isDark: boolean) {
 
     // Header
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
       paddingTop: 14,
       paddingBottom: 10,
       gap: 10,
     },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
     headerTitle: {
       fontFamily: FONTS.heading,
-      fontSize: 20,
+      fontSize: 24,
       color: colors.textPrimary,
-      flex: 1,
+    },
+    closeBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.cardElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    importBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    importBtnText: {
+      fontFamily: FONTS.medium,
+      fontSize: 13,
+      color: colors.textPrimary,
     },
     monthNav: {
       flexDirection: 'row',
@@ -1501,21 +1644,10 @@ function makeStyles(colors: any, isDark: boolean) {
     },
     monthLabel: {
       fontFamily: FONTS.semibold,
-      fontSize: 12,
+      fontSize: 13,
       color: colors.textPrimary,
-      minWidth: 88,
+      minWidth: 90,
       textAlign: 'center',
-    },
-    closeBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      backgroundColor: colors.cardElevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
     },
 
     // Filter
