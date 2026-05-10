@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Modal, TextInput, ActivityIndicator, Alert, RefreshControl,
-  Pressable, Animated, Share, Clipboard, Switch,
+  Pressable, Animated, Share, Clipboard, Switch, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { calculatePAYE, STATE_OPTIONS, REGIME_LABEL, type NigerianState, type TaxRegime } from '@/utils/taxCalc';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,68 +51,129 @@ function getMonth() {
   return new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' });
 }
 
-// ─── Add Source Modal ─────────────────────────────────────────────────────────
-function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, householdId }: {
+// ─── Add / Edit Source Modal ──────────────────────────────────────────────────
+function AddSourceModal({ visible, onClose, onAdded, onUpdated, onDeleted, source, colors, isDark, currency, householdId }: {
   visible: boolean; onClose: () => void; onAdded: (src: IncomeSource) => void;
+  onUpdated?: (src: IncomeSource) => void; onDeleted?: (id: string) => void;
+  source?: IncomeSource;
   colors: any; isDark: boolean; currency: CurrencyCode; householdId: string | null;
 }) {
+  const isEdit = !!source;
+  const insets = useSafeAreaInsets();
+
   const [name, setName]             = useState('');
-  const [type, setType]             = useState<IncomeType>('SALARY');
+  const [type, setType]             = useState<string>('SALARY');
+  const [isCustomType, setIsCustomType] = useState(false);
+  const [customType, setCustomType] = useState('');
   const [amountText, setAmountText] = useState('');
   const [subtitle, setSubtitle]     = useState('');
   const [saving, setSaving]         = useState(false);
+  const [errorMsg, setErrorMsg]     = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  const sheetRef   = useRef<BottomSheetModal>(null);
-  const amountRef  = useRef<any>(null);
-  const subtitleRef = useRef<any>(null);
+  const amountRef   = useRef<TextInput>(null);
+  const subtitleRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) {
-      sheetRef.current?.present();
-    } else {
-      sheetRef.current?.dismiss();
+      setErrorMsg('');
+      setDeleteConfirm(false);
+      if (source) {
+        setName(source.name);
+        // subtitle may encode a custom type as "[PENSION] description"
+        const customMatch = source.subtitle?.match(/^\[([^\]]+)\](.*)/s);
+        const knownType = (INCOME_TYPES as string[]).includes(source.type);
+        if (!knownType) {
+          setIsCustomType(true);
+          setCustomType(source.type);
+          setSubtitle(source.subtitle ?? '');
+        } else if (customMatch && source.type === 'SIDE INCOME') {
+          setIsCustomType(true);
+          setCustomType(customMatch[1]);
+          setSubtitle(customMatch[2].trim());
+        } else {
+          setType(source.type);
+          setIsCustomType(false);
+          setCustomType('');
+          setSubtitle(source.subtitle ?? '');
+        }
+        setAmountText(String(source.amount));
+      } else {
+        reset();
+      }
     }
   }, [visible]);
 
-  function reset() { setName(''); setType('SALARY'); setAmountText(''); setSubtitle(''); }
-
-  function handleAmountChange(raw: string) {
-    setAmountText(formatInput(raw));
+  function reset() {
+    setName(''); setType('SALARY'); setIsCustomType(false);
+    setCustomType(''); setAmountText(''); setSubtitle('');
+    setErrorMsg(''); setDeleteConfirm(false);
   }
 
   async function handleAdd() {
+    setErrorMsg('');
     const amount = parseInput(amountText);
-    if (!name.trim() || !amount) {
-      Alert.alert('Missing info', 'Please enter a source name and amount.');
-      return;
-    }
+    const effectiveType = isCustomType ? customType.trim().toUpperCase() : type;
+    if (!name.trim())    { setErrorMsg('Please enter a source name.'); return; }
+    if (!amount)         { setErrorMsg('Please enter an amount greater than 0.'); return; }
+    if (!effectiveType)  { setErrorMsg('Please select or enter an income type.'); return; }
+
     setSaving(true);
-    const { data: { user: cu } } = await supabase.auth.getUser();
-    if (!cu) { setSaving(false); Alert.alert('Session expired', 'Please sign in again.'); return; }
-    const { data, error } = await (supabase as any)
-      .from('income_sources')
-      .insert({
-        user_id: cu.id,
-        household_id: householdId,
-        name: name.trim(), type, amount,
-        subtitle: subtitle.trim() || null,
-      })
-      .select().single();
-    setSaving(false);
-    if (error) { Alert.alert('Error', error.message); return; }
-    if (data) { onAdded(data); reset(); onClose(); }
+
+    const payload = {
+      name: name.trim(),
+      type: effectiveType,
+      amount,
+      subtitle: subtitle.trim() || null,
+    };
+
+    if (isEdit && source) {
+      let { data, error } = await (supabase as any)
+        .from('income_sources').update(payload).eq('id', source.id).select().single();
+
+      // Constraint not dropped yet — fall back: store type label in subtitle prefix
+      if (error?.message?.includes('type_check')) {
+        const encodedSub = `[${effectiveType}]${subtitle.trim() ? ' ' + subtitle.trim() : ''}`;
+        ({ data, error } = await (supabase as any)
+          .from('income_sources')
+          .update({ ...payload, type: 'SIDE INCOME', subtitle: encodedSub })
+          .eq('id', source.id).select().single());
+      }
+      setSaving(false);
+      if (error) { setErrorMsg(error.message); return; }
+      if (data) { onUpdated?.(data); onClose(); }
+
+    } else {
+      const { data: { user: cu } } = await supabase.auth.getUser();
+      if (!cu) { setSaving(false); setErrorMsg('Session expired. Please sign in again.'); return; }
+
+      const base = { user_id: cu.id, household_id: householdId, ...payload };
+      let { data, error } = await (supabase as any)
+        .from('income_sources').insert(base).select().single();
+
+      // Constraint not dropped yet — fall back: store type label in subtitle prefix
+      if (error?.message?.includes('type_check')) {
+        const encodedSub = `[${effectiveType}]${subtitle.trim() ? ' ' + subtitle.trim() : ''}`;
+        ({ data, error } = await (supabase as any)
+          .from('income_sources')
+          .insert({ ...base, type: 'SIDE INCOME', subtitle: encodedSub })
+          .select().single());
+      }
+      setSaving(false);
+      if (error) { setErrorMsg(error.message); return; }
+      if (data) { onAdded(data); reset(); onClose(); }
+    }
+  }
+
+  async function handleDelete() {
+    if (!source) return;
+    await (supabase as any).from('income_sources').delete().eq('id', source.id);
+    onDeleted?.(source.id);
+    onClose();
   }
 
   const sym = CURRENCIES[currency].symbol;
   const ms = makeModalStyles(colors, isDark);
-
-  const renderBackdrop = (props: any) => (
-    <BottomSheetBackdrop
-      {...props}
-      disappearsOnIndex={-1}
-      appearsOnIndex={0}
-    />
-  );
 
   const inputStyle: any = {
     backgroundColor: colors.surface,
@@ -129,112 +190,201 @@ function AddSourceModal({ visible, onClose, onAdded, colors, isDark, currency, h
   };
 
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      snapPoints={['90%']}
-      enableDynamicSizing={false}
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      backdropComponent={renderBackdrop}
-      backgroundStyle={{ backgroundColor: colors.card, borderRadius: 28 }}
-      handleIndicatorStyle={{ backgroundColor: colors.border, width: 40 }}
-      onDismiss={onClose}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <BottomSheetScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 60 }}
+      <KeyboardAvoidingView
+        style={{ flex: 1, justifyContent: 'flex-end' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Text style={ms.title}>Add Income Source</Text>
-
-        {/* Source name */}
-        <Text style={ms.label}>SOURCE NAME</Text>
-        <BottomSheetInput
-          style={inputStyle}
-          placeholder="e.g. GTBank Salary"
-          placeholderTextColor={colors.textMuted}
-          value={name}
-          onChangeText={setName}
-          returnKeyType="next"
-          onSubmitEditing={() => amountRef.current?.focus()}
-          blurOnSubmit={false}
-          autoCorrect={false}
-          autoFocus={false}
+        {/* Backdrop */}
+        <Pressable
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onPress={onClose}
         />
 
-        {/* Type pills */}
-        <Text style={ms.label}>TYPE</Text>
-        <View style={ms.typeRow}>
-          {INCOME_TYPES.map((t) => {
-            const sel = type === t;
-            const b = TYPE_BADGE[t];
-            return (
-              <TouchableOpacity key={t}
-                style={[ms.typePill, sel && { backgroundColor: b.bg, borderColor: b.text }]}
-                onPress={() => setType(t)}>
-                <Text style={[ms.typePillTxt, sel && { color: b.text, fontFamily: FONTS.semibold }]}>{t}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Amount — big Revolut-style input */}
-        <Text style={ms.label}>AMOUNT</Text>
+        {/* Sheet */}
         <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderBottomWidth: 2,
-          borderBottomColor: colors.gold + '44',
-          paddingBottom: 16,
-          marginBottom: 24,
+          backgroundColor: colors.card,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          maxHeight: '92%',
+          paddingBottom: insets.bottom + 8,
         }}>
-          <Text style={{ fontFamily: FONTS.heading, fontSize: 36, color: colors.gold, marginRight: 8 }}>{sym}</Text>
-          <BottomSheetInput
-            ref={amountRef}
-            style={{
-              flex: 1,
-              fontSize: 40,
-              fontFamily: FONTS.heading,
-              color: colors.gold,
-              textAlign: 'right',
-              includeFontPadding: false,
-            }}
-            placeholder="0"
-            placeholderTextColor={colors.textMuted}
-            value={amountText}
-            onChangeText={handleAmountChange}
-            keyboardType="numeric"
-            returnKeyType="next"
-            onSubmitEditing={() => subtitleRef.current?.focus()}
-            blurOnSubmit={false}
-            selectTextOnFocus
-            cursorColor={colors.gold}
-            selectionColor={colors.gold + '55'}
-          />
+          {/* Handle */}
+          <View style={{ width: 40, height: 5, borderRadius: 2.5, backgroundColor: colors.border, alignSelf: 'center', marginTop: 10, marginBottom: 4 }} />
+
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 16, paddingTop: 8 }}
+          >
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 4 }}>
+              <Text style={[ms.title, { flex: 1, marginBottom: 0 }]}>
+                {isEdit ? 'Edit Income Source' : 'Add Income Source'}
+              </Text>
+              {isEdit && !deleteConfirm && (
+                <TouchableOpacity
+                  onPress={() => setDeleteConfirm(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{ marginRight: 14 }}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Delete confirmation banner */}
+            {deleteConfirm && (
+              <View style={{ backgroundColor: colors.danger + '18', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.danger + '44' }}>
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: colors.danger, marginBottom: 10 }}>
+                  Remove "{source?.name}"?
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => setDeleteConfirm(false)}
+                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center' }}
+                  >
+                    <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: colors.textSecondary }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDelete}
+                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.danger, alignItems: 'center' }}
+                  >
+                    <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: '#fff' }}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Inline error banner */}
+            {!!errorMsg && (
+              <View style={{ backgroundColor: colors.danger + '18', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderWidth: 1, borderColor: colors.danger + '44' }}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} style={{ marginTop: 1 }} />
+                <Text style={{ fontFamily: FONTS.regular, fontSize: 13, color: colors.danger, flex: 1, lineHeight: 19 }}>{errorMsg}</Text>
+                <TouchableOpacity onPress={() => setErrorMsg('')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Ionicons name="close" size={16} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Source name */}
+            <Text style={ms.label}>SOURCE NAME</Text>
+            <TextInput
+              style={inputStyle}
+              placeholder="e.g. GTBank Salary"
+              placeholderTextColor={colors.textMuted}
+              value={name}
+              onChangeText={setName}
+              returnKeyType="next"
+              onSubmitEditing={() => amountRef.current?.focus()}
+              blurOnSubmit={false}
+              autoCorrect={false}
+              cursorColor={colors.gold}
+            />
+
+            {/* Type pills */}
+            <Text style={ms.label}>TYPE</Text>
+            <View style={ms.typeRow}>
+              {INCOME_TYPES.map((t) => {
+                const sel = !isCustomType && type === t;
+                const b = TYPE_BADGE[t as IncomeType];
+                return (
+                  <TouchableOpacity key={t}
+                    style={[ms.typePill, sel && { backgroundColor: b.bg, borderColor: b.text }]}
+                    onPress={() => { setType(t); setIsCustomType(false); }}>
+                    <Text style={[ms.typePillTxt, sel && { color: b.text, fontFamily: FONTS.semibold }]}>{t}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[ms.typePill, isCustomType && { backgroundColor: 'rgba(212,175,55,0.15)', borderColor: colors.gold }]}
+                onPress={() => setIsCustomType(true)}>
+                <Text style={[ms.typePillTxt, isCustomType && { color: colors.gold, fontFamily: FONTS.semibold }]}>CUSTOM</Text>
+              </TouchableOpacity>
+            </View>
+
+            {isCustomType && (
+              <TextInput
+                style={{ ...inputStyle, marginTop: -8 }}
+                placeholder="e.g. RENTAL, PENSION, DIVIDEND"
+                placeholderTextColor={colors.textMuted}
+                value={customType}
+                onChangeText={setCustomType}
+                returnKeyType="next"
+                autoCapitalize="characters"
+                autoFocus
+                cursorColor={colors.gold}
+                onSubmitEditing={() => amountRef.current?.focus()}
+                blurOnSubmit={false}
+              />
+            )}
+
+            {/* Amount */}
+            <Text style={ms.label}>AMOUNT</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: colors.gold + '44', paddingBottom: 16, marginBottom: 24 }}>
+              <Text style={{ fontFamily: FONTS.heading, fontSize: 36, color: colors.gold, marginRight: 8 }}>{sym}</Text>
+              <TextInput
+                ref={amountRef}
+                style={{ flex: 1, fontSize: 40, fontFamily: FONTS.heading, color: colors.gold, textAlign: 'right', includeFontPadding: false } as any}
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+                value={amountText}
+                onChangeText={(v) => setAmountText(formatInput(v))}
+                keyboardType="numeric"
+                returnKeyType="next"
+                onSubmitEditing={() => subtitleRef.current?.focus()}
+                blurOnSubmit={false}
+                selectTextOnFocus
+                cursorColor={colors.gold}
+                selectionColor={colors.gold + '55'}
+              />
+            </View>
+
+            {/* Description */}
+            <Text style={ms.label}>DESCRIPTION (OPTIONAL)</Text>
+            <TextInput
+              ref={subtitleRef}
+              style={inputStyle}
+              placeholder="e.g. Fixed monthly income"
+              placeholderTextColor={colors.textMuted}
+              value={subtitle}
+              onChangeText={setSubtitle}
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
+              cursorColor={colors.gold}
+            />
+
+            {/* Submit */}
+            <TouchableOpacity
+              style={{ backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center', opacity: saving ? 0.7 : 1 }}
+              onPress={handleAdd}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              {saving
+                ? <ActivityIndicator color={isDark ? colors.bg : '#fff'} size="small" />
+                : <Text style={{ fontFamily: FONTS.semibold, fontSize: 16, color: isDark ? colors.bg : '#fff' }}>
+                    {isEdit ? 'Save Changes' : 'Add Source'}
+                  </Text>
+              }
+            </TouchableOpacity>
+
+            <TouchableOpacity style={ms.cancelRow} onPress={onClose}>
+              <Text style={ms.cancelTxt}>Cancel</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
-
-        {/* Description */}
-        <Text style={ms.label}>DESCRIPTION (OPTIONAL)</Text>
-        <BottomSheetInput
-          ref={subtitleRef}
-          style={inputStyle}
-          placeholder="e.g. Fixed monthly income"
-          placeholderTextColor={colors.textMuted}
-          value={subtitle}
-          onChangeText={setSubtitle}
-          returnKeyType="done"
-          onSubmitEditing={handleAdd}
-        />
-
-        <TouchableOpacity style={ms.addBtn} onPress={handleAdd} disabled={saving} activeOpacity={0.85}>
-          {saving ? <ActivityIndicator color={isDark ? colors.bg : '#FFF'} />
-            : <Text style={ms.addBtnTxt}>Add Source</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity style={ms.cancelRow} onPress={onClose}>
-          <Text style={ms.cancelTxt}>Cancel</Text>
-        </TouchableOpacity>
-      </BottomSheetScrollView>
-    </BottomSheetModal>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -1305,6 +1455,7 @@ export default function IncomeSetupScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [allocPct, setAllocPct]   = useState(0);
   const [showAdd, setShowAdd]               = useState(false);
+  const [editingSource, setEditingSource]   = useState<IncomeSource | undefined>();
   const [showCurrency, setShowCurrency]     = useState(false);
   const [showHousehold, setShowHousehold]   = useState(false);
   const [showSmartAllocate, setShowSmartAllocate] = useState(false);
@@ -1391,8 +1542,11 @@ export default function IncomeSetupScreen() {
     <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      <AddSourceModal visible={showAdd} onClose={() => setShowAdd(false)}
+      <AddSourceModal visible={showAdd} onClose={() => { setShowAdd(false); setEditingSource(undefined); }}
         onAdded={(src) => setSources((prev) => [src, ...prev])}
+        onUpdated={(src) => setSources((prev) => prev.map((s) => s.id === src.id ? src : s))}
+        onDeleted={(id) => setSources((prev) => prev.filter((s) => s.id !== id))}
+        source={editingSource}
         colors={colors} isDark={isDark} currency={currency}
         householdId={household?.id ?? null} />
 
@@ -1447,8 +1601,9 @@ export default function IncomeSetupScreen() {
               <Text style={s.currencyChipCode}>{currency}</Text>
             </TouchableOpacity>
             {/* Transactions */}
-            <TouchableOpacity style={s.themeToggle} onPress={() => router.push('/transactions' as any)} activeOpacity={0.75}>
-              <Ionicons name="receipt-outline" size={18} color={colors.textSecondary} />
+            <TouchableOpacity style={s.currencyChip} onPress={() => router.push('/transactions' as any)} activeOpacity={0.75}>
+              <Ionicons name="receipt-outline" size={14} color={colors.textSecondary} />
+              <Text style={s.currencyChipCode}>Transactions</Text>
             </TouchableOpacity>
             {/* Theme toggle */}
             <TouchableOpacity style={s.themeToggle} onPress={toggleColorMode} activeOpacity={0.75}>
@@ -1571,7 +1726,7 @@ export default function IncomeSetupScreen() {
                 </View>
               )}
             </View>
-            <TouchableOpacity style={s.addIconBtn} onPress={() => setShowAdd(true)} activeOpacity={0.75}>
+            <TouchableOpacity style={s.addIconBtn} onPress={() => { setEditingSource(undefined); setShowAdd(true); }} activeOpacity={0.75}>
               <Ionicons name="add" size={20} color={colors.gold} />
             </TouchableOpacity>
           </View>
@@ -1584,7 +1739,7 @@ export default function IncomeSetupScreen() {
               <Text style={s.emptySubtitle}>
                 Add your salary, freelance work, or any regular income to get started.
               </Text>
-              <TouchableOpacity style={s.emptyAddBtn} onPress={() => setShowAdd(true)} activeOpacity={0.8}>
+              <TouchableOpacity style={s.emptyAddBtn} onPress={() => { setEditingSource(undefined); setShowAdd(true); }} activeOpacity={0.8}>
                 <Text style={s.emptyAddBtnTxt}>Add Income Source</Text>
               </TouchableOpacity>
             </View>
@@ -1597,7 +1752,7 @@ export default function IncomeSetupScreen() {
                 <TouchableOpacity key={src.id}
                   style={s.sourceCard}
                   activeOpacity={0.75}
-                  onLongPress={() => deleteSource(src.id, src.user_id)}>
+                  onPress={() => { setEditingSource(src); setShowAdd(true); }}>
                   {/* Icon */}
                   <View style={[s.srcIconWrap, { backgroundColor: meta.bg }]}>
                     <Ionicons name={meta.icon} size={20} color={meta.color} />
@@ -1623,7 +1778,7 @@ export default function IncomeSetupScreen() {
           )}
 
           {sources.length > 0 && (
-            <Text style={s.longPressHint}>Long-press a card to remove it</Text>
+            <Text style={s.longPressHint}>Tap a card to edit or remove it</Text>
           )}
         </View>
 
