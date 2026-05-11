@@ -1,71 +1,62 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface TabIconProps {
-  name: IoniconName;
-  color: string;
-  focused: boolean;
-  goldBg: string;
+// Clean tab icon: solid filled icon when active + gold dot indicator below.
+// No pill — avoids clipping the icon and the "straight lines" artifact.
+function TabIcon({ name, color, focused }: { name: IoniconName; color: string; focused: boolean }) {
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+      <Ionicons name={name} size={22} color={color} />
+      {focused && (
+        <View style={{
+          width: 4, height: 4, borderRadius: 2,
+          backgroundColor: color,
+        }} />
+      )}
+    </View>
+  );
 }
-
-function TabIcon({ name, color, focused, goldBg }: TabIconProps) {
-  if (focused) {
-    return (
-      <View
-        style={[
-          styles.pill,
-          { backgroundColor: goldBg },
-        ]}
-      >
-        <Ionicons name={name} size={22} color={color} />
-      </View>
-    );
-  }
-  return <Ionicons name={name} size={22} color={color} />;
-}
-
-const styles = StyleSheet.create({
-  pill: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
 
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const activeTint   = isDark ? colors.gold : colors.burgundy;
+  const inactiveTint = isDark ? 'rgba(255,255,255,0.38)' : colors.textMuted;
+
+  // Tab bar height = visible content (56px) + device home-indicator space
+  const tabBarHeight = 56 + insets.bottom;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopWidth: isDark ? 1 : 0,
-          borderTopColor: colors.border,
-          height: 72,
-          paddingBottom: 10,
+          backgroundColor: isDark ? colors.burgundyNav : colors.card,
+          borderTopWidth: isDark ? 0 : 1,
+          borderTopColor: colors.borderLight,
+          height: tabBarHeight,
+          paddingBottom: insets.bottom + 4,
           paddingTop: 8,
-          shadowColor: colors.shadow,
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: isDark ? 0 : 0.1,
-          shadowRadius: 12,
-          elevation: isDark ? 0 : 6,
+          shadowColor: isDark ? 'transparent' : colors.shadow,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: isDark ? 0 : 0.08,
+          shadowRadius: 16,
+          elevation: isDark ? 0 : 8,
         },
-        tabBarActiveTintColor: colors.gold,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: activeTint,
+        tabBarInactiveTintColor: inactiveTint,
         tabBarLabelStyle: {
           fontFamily: FONTS.medium,
-          fontSize: 12,
-          marginTop: 2,
+          fontSize: 11,
+          marginTop: 0,
         },
       }}
     >
@@ -75,10 +66,9 @@ export default function TabLayout() {
           title: 'Income',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              name={focused ? 'wallet' : 'wallet-outline'}
+              name={focused ? 'cash' : 'cash-outline'}
               color={color}
               focused={focused}
-              goldBg={colors.goldBg}
             />
           ),
         }}
@@ -89,10 +79,9 @@ export default function TabLayout() {
           title: 'Allocate',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              name={focused ? 'layers' : 'layers-outline'}
+              name={focused ? 'pie-chart' : 'pie-chart-outline'}
               color={color}
               focused={focused}
-              goldBg={colors.goldBg}
             />
           ),
         }}
@@ -103,10 +92,9 @@ export default function TabLayout() {
           title: 'Plan',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              name={focused ? 'compass' : 'compass-outline'}
+              name={focused ? 'flag' : 'flag-outline'}
               color={color}
               focused={focused}
-              goldBg={colors.goldBg}
             />
           ),
         }}
@@ -120,7 +108,6 @@ export default function TabLayout() {
               name={focused ? 'bar-chart' : 'bar-chart-outline'}
               color={color}
               focused={focused}
-              goldBg={colors.goldBg}
             />
           ),
         }}

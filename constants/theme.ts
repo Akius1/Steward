@@ -1,31 +1,37 @@
-// Steward Design System — Obsidian (dark) + Warm Parchment (light)
-// Colour tokens derived from the Steward Obsidian design language
+// Steward Design System — Royal Burgundy
+// Colour tokens derived from the Steward Royal Burgundy design language
+// Burgundy = primary action colour · Gold = accent / highlight colour
 
-// ─── Dark Palette — "Obsidian" ────────────────────────────────────────────────
+// ─── Dark Palette — "Royal Burgundy" ─────────────────────────────────────────
 export const DARK_COLORS = {
-  bg:           '#121415',   // background
-  surface:      '#1a1c1d',   // surface-container-low
-  card:         '#1e2021',   // surface-container
-  cardElevated: '#282a2b',   // surface-container-high
-  border:       '#4e4639',   // outline-variant
-  borderLight:  '#9a8f80',   // outline
+  bg:           '#1a0505',   // deep burgundy background
+  surface:      '#1e0707',   // surface-container-lowest
+  card:         '#2e1413',   // surface-container-low
+  cardElevated: '#3f2221',   // surface-container-high
+  border:       '#554240',   // outline-variant
+  borderLight:  '#a38b89',   // outline
 
-  gold:         '#ebc076',   // primary
-  goldLight:    '#ffdeaa',   // primary-fixed
-  goldDim:      '#b18b46',   // primary-container
-  goldBg:       'rgba(235,192,118,0.10)',
-  goldBgStrong: 'rgba(235,192,118,0.20)',
+  // Burgundy — primary action colour (CTA buttons, header)
+  burgundy:     '#4E0B0B',   // primary burgundy
+  burgundyNav:  '#210909',   // nav bar / pill background
+
+  // Gold — accent / highlight (numbers, progress bars, active states)
+  gold:         '#D4AF37',   // primary gold
+  goldLight:    '#F0D060',   // gold light / fixed
+  goldDim:      '#B38F2D',   // gold dim
+  goldBg:       'rgba(212,175,55,0.10)',
+  goldBgStrong: 'rgba(212,175,55,0.22)',
 
   emerald:      '#10B97A',
   emeraldLight: '#34D399',
   emeraldBg:    'rgba(16,185,122,0.12)',
 
-  textPrimary:   '#e2e2e3',  // on-surface
-  textSecondary: '#d2c5b4',  // on-surface-variant
-  textMuted:     '#9a8f80',  // outline
+  textPrimary:   '#ffdad8',  // on-surface (warm rose-white)
+  textSecondary: '#dbc1be',  // on-surface-variant
+  textMuted:     '#a38b89',  // outline
 
-  secondary:  '#b9cbc1',
-  tertiary:   '#e3bfb2',
+  secondary:  '#ffb3ac',     // secondary container
+  tertiary:   '#c8c8b0',     // tertiary
 
   success:    '#22C55E',
   successBg:  'rgba(34,197,94,0.12)',
@@ -44,31 +50,36 @@ export const DARK_COLORS = {
   overlay:    'rgba(0,0,0,0.75)',
 } as const;
 
-// ─── Light Palette — "Warm Parchment" ────────────────────────────────────────
+// ─── Light Palette — "Royal Burgundy Light" ───────────────────────────────────
 export const LIGHT_COLORS = {
-  bg:           '#fdf9f3',   // background
-  surface:      '#f7f3ed',   // surface-container-low
-  card:         '#ffffff',   // surface-container-lowest
-  cardElevated: '#ebe8e2',   // surface-container-high
-  border:       '#d2c5b4',   // outline-variant
-  borderLight:  '#e6e2dc',   // surface-container-highest
+  bg:           '#f9f9f9',   // near-neutral white background
+  surface:      '#f3f3f4',   // surface-container-low
+  card:         '#ffffff',   // pure white card
+  cardElevated: '#eeeeee',   // surface-container
+  border:       '#887270',   // outline
+  borderLight:  '#dbc1be',   // outline-variant
 
-  gold:         '#775616',   // primary
-  goldLight:    '#ebc076',   // inverse-primary / primary-fixed-dim
-  goldDim:      '#d2c5b4',   // outline-variant as muted gold
-  goldBg:       'rgba(119,86,22,0.08)',
-  goldBgStrong: 'rgba(119,86,22,0.14)',
+  // Burgundy — primary action colour
+  burgundy:     '#4E0B0B',   // primary CTA / header
+  burgundyNav:  '#210909',   // nav accent
+
+  // Gold — accent / highlight
+  gold:         '#D4AF37',   // primary gold accent
+  goldLight:    '#F0D060',   // gold light
+  goldDim:      '#B38F2D',   // gold dim
+  goldBg:       'rgba(212,175,55,0.09)',
+  goldBgStrong: 'rgba(212,175,55,0.18)',
 
   emerald:      '#0A9660',
   emeraldLight: '#10B97A',
   emeraldBg:    'rgba(10,150,96,0.10)',
 
-  textPrimary:   '#1c1c18',  // on-surface
-  textSecondary: '#4e4639',  // on-surface-variant
-  textMuted:     '#807667',  // outline
+  textPrimary:   '#161000',  // near-black primary text
+  textSecondary: '#462827',  // dark burgundy secondary text
+  textMuted:     '#887270',  // muted / outline colour
 
-  secondary:  '#596060',
-  tertiary:   '#625b51',
+  secondary:  '#99443e',     // mid-burgundy secondary
+  tertiary:   '#474836',     // on-tertiary-fixed-variant
 
   success:    '#16A34A',
   successBg:  'rgba(22,163,74,0.10)',
@@ -83,8 +94,8 @@ export const LIGHT_COLORS = {
   pink:       '#BE185D',
   pinkBg:     'rgba(190,24,93,0.10)',
 
-  shadow:     'rgba(28,28,24,0.10)',
-  overlay:    'rgba(28,28,24,0.50)',
+  shadow:     'rgba(22,16,0,0.10)',
+  overlay:    'rgba(22,16,0,0.50)',
 } as const;
 
 export const COLORS = DARK_COLORS;
@@ -136,14 +147,15 @@ export const SHADOWS = {
 
 // ─── Allocation bucket palette ────────────────────────────────────────────────
 export const BUCKET_COLORS = [
-  '#ebc076', // Gold      — Rent/Housing
+  '#D4AF37', // Gold      — Rent/Housing
   '#10B97A', // Emerald   — Food
   '#60A5FA', // Blue      — Savings
   '#A78BFA', // Purple    — Investments
   '#F472B6', // Pink      — Entertainment
   '#F59E0B', // Amber     — Emergency
   '#34D399', // Mint      — Giving
-  '#b9cbc1', // Sage      — Covenant Practice
+  '#c8c8b0', // Sage      — Covenant Practice
+  '#06B6D4', // Cyan      — Utilities
 ] as const;
 
 export const CUSTOM_BUCKET_COLORS = [
@@ -157,12 +169,13 @@ export const CUSTOM_BUCKET_COLORS = [
 ] as const;
 
 export const BUCKET_DEFAULTS = [
-  { name: 'Rent & Housing',    icon: 'home-outline',             color: BUCKET_COLORS[0], defaultPct: 25 },
+  { name: 'Rent & Housing',    icon: 'home-outline',             color: BUCKET_COLORS[0], defaultPct: 22 },
   { name: 'Food & Groceries',  icon: 'restaurant-outline',       color: BUCKET_COLORS[1], defaultPct: 10 },
   { name: 'Savings',           icon: 'trending-up-outline',      color: BUCKET_COLORS[2], defaultPct: 20 },
   { name: 'Investments',       icon: 'stats-chart-outline',      color: BUCKET_COLORS[3], defaultPct: 10 },
   { name: 'Entertainment',     icon: 'musical-notes-outline',    color: BUCKET_COLORS[4], defaultPct: 5  },
-  { name: 'Emergency Fund',    icon: 'shield-checkmark-outline', color: BUCKET_COLORS[5], defaultPct: 15 },
+  { name: 'Emergency Fund',    icon: 'shield-checkmark-outline', color: BUCKET_COLORS[5], defaultPct: 13 },
   { name: 'Giving',            icon: 'heart-outline',            color: BUCKET_COLORS[6], defaultPct: 5  },
   { name: 'Covenant Practice', icon: 'infinite-outline',         color: BUCKET_COLORS[7], defaultPct: 10 },
+  { name: 'Utilities',         icon: 'flash-outline',            color: BUCKET_COLORS[8], defaultPct: 5  },
 ] as const;
