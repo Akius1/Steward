@@ -335,20 +335,57 @@ export default function SettingsScreen() {
             label="Currency"
             value={`${currMeta?.flag ?? ''} ${currency}`}
             onPress={() => setShowCurrency(true)}
-          />
-          <Row
-            icon="moon-outline"
-            label="Dark mode"
             last
-            trailing={
-              <Switch
-                value={isDark}
-                onValueChange={(v) => setColorMode(v ? 'dark' : 'light')}
-                trackColor={{ false: colors.border, true: colors.burgundy }}
-                thumbColor={isDark ? colors.gold : colors.card}
-              />
-            }
           />
+        </Section>
+
+        {/* ── Appearance ────────────────────────────── */}
+        <Section title="Appearance">
+          <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{
+                width: 32, height: 32, borderRadius: 8,
+                backgroundColor: colors.goldBg,
+                alignItems: 'center', justifyContent: 'center', marginRight: 12,
+              }}>
+                <Ionicons name="contrast-outline" size={16} color={colors.gold} />
+              </View>
+              <Text style={{ flex: 1, fontFamily: FONTS.medium, fontSize: 15, color: colors.textPrimary }}>
+                Theme
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { mode: 'system' as const, icon: 'phone-portrait-outline' as const, label: 'System' },
+                { mode: 'light'  as const, icon: 'sunny-outline'           as const, label: 'Light'  },
+                { mode: 'dark'   as const, icon: 'moon-outline'            as const, label: 'Dark'   },
+              ]).map(({ mode, icon, label }) => {
+                const active = colorMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    onPress={() => setColorMode(mode)}
+                    activeOpacity={0.75}
+                    style={{
+                      flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12,
+                      backgroundColor: active ? colors.burgundy : colors.surface,
+                      borderWidth: 1.5,
+                      borderColor: active ? colors.gold + '60' : colors.border,
+                    }}
+                  >
+                    <Ionicons name={icon} size={18} color={active ? colors.gold : colors.textMuted} style={{ marginBottom: 4 }} />
+                    <Text style={{
+                      fontFamily: FONTS.semibold, fontSize: 11,
+                      color: active ? colors.gold : colors.textMuted,
+                      letterSpacing: 0.5,
+                    }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </Section>
 
         {/* ── Security & Notifications ──────────────── */}

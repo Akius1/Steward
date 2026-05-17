@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Modal, TextInput, ActivityIndicator, Alert, RefreshControl,
-  Pressable, Animated, Share, Clipboard, Switch, KeyboardAvoidingView, Platform,
+  Pressable, Animated, Share, Clipboard, Switch, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { calculatePAYE, STATE_OPTIONS, REGIME_LABEL, type NigerianState, type TaxRegime } from '@/utils/taxCalc';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1446,7 +1446,7 @@ function TaxReserveSheet({ visible, onClose, sources, colors, isDark, currency, 
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function IncomeSetupScreen() {
-  const { colors, isDark, toggleColorMode } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user, profile, household, householdMembers, currency, signOut, setCurrency, refreshHousehold } = useAuth();
   const router = useRouter();
 
@@ -1456,7 +1456,7 @@ export default function IncomeSetupScreen() {
   const [allocPct, setAllocPct]   = useState(0);
   const [showAdd, setShowAdd]               = useState(false);
   const [editingSource, setEditingSource]   = useState<IncomeSource | undefined>();
-  const [showCurrency, setShowCurrency]     = useState(false);
+
   const [showHousehold, setShowHousehold]   = useState(false);
   const [showSmartAllocate, setShowSmartAllocate] = useState(false);
   const [showTaxReserve, setShowTaxReserve] = useState(false);
@@ -1550,9 +1550,6 @@ export default function IncomeSetupScreen() {
         colors={colors} isDark={isDark} currency={currency}
         householdId={household?.id ?? null} />
 
-      <CurrencyModal visible={showCurrency} current={currency}
-        onSelect={setCurrency} onClose={() => setShowCurrency(false)}
-        colors={colors} isDark={isDark} />
 
       <HouseholdModal visible={showHousehold} onClose={() => setShowHousehold(false)}
         colors={colors} isDark={isDark} household={household}
@@ -1593,29 +1590,23 @@ export default function IncomeSetupScreen() {
       >
         {/* ── Header ─────────────────────────────────────── */}
         <View style={s.appHeader}>
-          <Text style={s.wordmark}>Steward</Text>
-          <View style={s.headerActions}>
-            {/* Currency chip */}
-            <TouchableOpacity style={s.currencyChip} onPress={() => setShowCurrency(true)} activeOpacity={0.75}>
-              <Text style={s.currencyChipFlag}>{CURRENCIES[currency].flag}</Text>
-              <Text style={s.currencyChipCode}>{currency}</Text>
-            </TouchableOpacity>
-            {/* Transactions */}
-            <TouchableOpacity style={s.currencyChip} onPress={() => router.push('/transactions' as any)} activeOpacity={0.75}>
-              <Ionicons name="receipt-outline" size={14} color={colors.textSecondary} />
-              <Text style={s.currencyChipCode}>Transactions</Text>
-            </TouchableOpacity>
-            {/* Theme toggle */}
-            <TouchableOpacity style={s.themeToggle} onPress={toggleColorMode} activeOpacity={0.75}>
-              <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-            {/* Avatar / account */}
-            <TouchableOpacity style={s.avatarBtn}
-              onPress={() => router.push('/settings' as any)}
-              activeOpacity={0.8}>
-              <Text style={s.avatarLetter}>{(profile?.name ?? 'U').charAt(0).toUpperCase()}</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Logo + Wordmark */}
+          <Image source={require('../../assets/images/icon.png')} style={s.logoImg} resizeMode="contain" />
+          <Text style={s.wordmark} numberOfLines={1}>Steward</Text>
+
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Transactions chip */}
+          <TouchableOpacity style={s.transactionsChip} onPress={() => router.push('/transactions' as any)} activeOpacity={0.75}>
+            <Ionicons name="receipt-outline" size={14} color={colors.gold} />
+            <Text style={s.transactionsChipText}>Transactions</Text>
+          </TouchableOpacity>
+
+          {/* Settings icon */}
+          <TouchableOpacity style={s.settingsBtn} onPress={() => router.push('/settings' as any)} activeOpacity={0.8}>
+            <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* ── Greeting ───────────────────────────────────── */}
@@ -1828,20 +1819,24 @@ function makeStyles(colors: any, isDark: boolean) {
     // ── Header ──────────────────────────────────────────────────────────────
     appHeader: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingTop: 14,
-      paddingBottom: 6,
+      paddingBottom: 8,
+      gap: 8,
+    },
+    logoImg: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
     },
     wordmark: {
       fontFamily: FONTS.display,
-      fontSize: 24,
+      fontSize: 22,
       color: colors.gold,
       letterSpacing: -0.5,
     },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    currencyChip: {
+    transactionsChip: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
@@ -1850,9 +1845,8 @@ function makeStyles(colors: any, isDark: boolean) {
       borderRadius: 20,
       backgroundColor: colors.goldBg,
     },
-    currencyChipFlag: { fontSize: 14 },
-    currencyChipCode: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.gold },
-    themeToggle: {
+    transactionsChipText: { fontFamily: FONTS.semibold, fontSize: 12, color: colors.gold },
+    settingsBtn: {
       width: 36,
       height: 36,
       borderRadius: 18,
@@ -1861,19 +1855,6 @@ function makeStyles(colors: any, isDark: boolean) {
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    avatarBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.gold,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarLetter: {
-      fontFamily: FONTS.semibold,
-      fontSize: 15,
-      color: isDark ? colors.bg : '#FFFFFF',
     },
 
     // ── Greeting ────────────────────────────────────────────────────────────
