@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Keyboard,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  TextInput, ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import DonutChart from '@/src/components/DonutChart';
 import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
@@ -21,6 +14,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BUCKET_DEFAULTS, CUSTOM_BUCKET_COLORS, FONTS } from '@/constants/theme';
 import { fmt, formatInput, parseInput, CURRENCIES } from '@/utils/currency';
+import { useToast } from '@/src/components/Toast';
+import { ConfirmModal } from '@/src/components/ConfirmModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BucketState {
@@ -73,12 +68,13 @@ const BUCKET_CATEGORY_MAP: Record<string, string[]> = {
 
 // ─── Add Bucket Modal ─────────────────────────────────────────────────────────
 function AddBucketModal({
-  visible, onClose, onAdd, totalIncome, existingNames, colors, isDark,
+  visible, onClose, onAdd, totalIncome, existingNames, colors, isDark, onValidationError,
 }: {
   visible: boolean; onClose: () => void;
   onAdd: (name: string, pct: number) => void;
   totalIncome: number; existingNames: Set<string>;
   colors: any; isDark: boolean;
+  onValidationError: (title: string, message: string) => void;
 }) {
   const [name, setName] = useState('');
   const [pct, setPct] = useState('');
@@ -95,10 +91,10 @@ function AddBucketModal({
 
   function handleAdd() {
     const trimmed = name.trim();
-    if (!trimmed) { Alert.alert('Name required', 'Enter a name for your bucket.'); return; }
-    if (existingNames.has(trimmed)) { Alert.alert('Duplicate', 'A bucket with that name already exists.'); return; }
+    if (!trimmed) { onValidationError('Name required', 'Enter a name for your bucket.'); return; }
+    if (existingNames.has(trimmed)) { onValidationError('Duplicate', 'A bucket with that name already exists.'); return; }
     const p = parseFloat(pct.replace(',', '.'));
-    if (isNaN(p) || p <= 0 || p > 100) { Alert.alert('Invalid %', 'Enter a percentage between 1 and 100.'); return; }
+    if (isNaN(p) || p <= 0 || p > 100) { onValidationError('Invalid %', 'Enter a percentage between 1 and 100.'); return; }
     onAdd(trimmed, p);
     setName('');
     setPct('');
@@ -235,13 +231,24 @@ export default function AllocationScreen() {
   const resetSheetRef = useRef<BottomSheetModal>(null);
   const [lastMonthRows, setLastMonthRows] = useState<any[]>([]);
 
-  const scrollRef = useRef<ScrollView>(null);
-  // Store each bucket card's Y offset so we can scroll to it when focused
-  const cardOffsets = useRef<Record<string, number>>({});
+  const { showToast, ToastElement } = useToast();
+  const [confirmRemove, setConfirmRemove] = useState<{ visible: boolean; bucket: BucketState | null }>({ visible: false, bucket: null });
+
+  const scrollRef      = useRef<ScrollView>(null);
+  const cardOffsets    = useRef<Record<string, number>>({});
+  const sectionTopRef  = useRef(0);   // Y of the buckets section within ScrollView
+  const kbHeightRef    = useRef(0);   // actual keyboard height from event
+  const originalBucketNamesRef = useRef<Set<string>>(new Set()); // names in DB at load time
 
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (e) => {
+      kbHeightRef.current = e.endCoordinates.height;
+      setKeyboardVisible(true);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      kbHeightRef.current = 0;
       setKeyboardVisible(false);
       setFocusedBucket(null);
     });
@@ -291,7 +298,9 @@ export default function AllocationScreen() {
           color: CUSTOM_BUCKET_COLORS[i % CUSTOM_BUCKET_COLORS.length],
           amount: e.amount, isCustom: true,
         }));
-      setBuckets([...defaultBuckets, ...customBuckets]);
+      const merged = [...defaultBuckets, ...customBuckets];
+      setBuckets(merged);
+      originalBucketNamesRef.current = new Set(merged.map((b) => b.name));
     } else if (income > 0) {
       // No current-month plan — check if last month had one
       const prevM = month === 1 ? 12 : month - 1;
@@ -395,13 +404,16 @@ export default function AllocationScreen() {
 
   function handleFocus(bucketName: string) {
     setFocusedBucket(bucketName);
-    // Delay to let the keyboard appear, then scroll card into view
+    // On Android the keyboard animates in ~300ms; on iOS it's faster
+    const delay = Platform.OS === 'ios' ? 80 : 320;
     setTimeout(() => {
-      const y = cardOffsets.current[bucketName];
-      if (y !== undefined && scrollRef.current) {
-        scrollRef.current.scrollTo({ y: Math.max(0, y - 120), animated: true });
-      }
-    }, 150);
+      const cardY = cardOffsets.current[bucketName];
+      if (cardY === undefined || !scrollRef.current) return;
+      // sectionTopRef is the section's Y within ScrollView, cardY is the card's Y within the section
+      const absoluteY = sectionTopRef.current + cardY;
+      // Scroll so the card sits 80px from the top — well above the keyboard
+      scrollRef.current.scrollTo({ y: Math.max(0, absoluteY - 80), animated: true });
+    }, delay);
   }
 
   function addCustomBucket(name: string, pct: number) {
@@ -413,32 +425,55 @@ export default function AllocationScreen() {
     ]);
   }
 
-  function removeCustomBucket(name: string) {
-    Alert.alert('Remove bucket', `Remove "${name}" from your allocation?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => setBuckets((prev) => prev.filter((b) => b.name !== name)) },
-    ]);
+  function removeBucket(bucket: BucketState) {
+    setConfirmRemove({ visible: true, bucket });
+  }
+
+  function confirmRemoveBucket() {
+    if (!confirmRemove.bucket) return;
+    setBuckets((prev) => prev.filter((b) => b.name !== confirmRemove.bucket!.name));
+    setConfirmRemove({ visible: false, bucket: null });
   }
 
   async function handleSave() {
     if (keyboardVisible) { Keyboard.dismiss(); return; }
     if (!user) return;
     if (totalIncome === 0) {
-      Alert.alert('No income', 'Add at least one income source on the Income tab first.');
+      showToast({ type: 'warning', title: 'No income', message: 'Add at least one income source on the Income tab first.' });
       return;
     }
     if (!isBalanced) {
-      Alert.alert(
-        'Allocation incomplete',
-        remaining > 0
+      showToast({
+        type: 'warning',
+        title: 'Allocation incomplete',
+        message: remaining > 0
           ? `You still have ${fmt(remaining, currency)} unallocated. Steward requires 100% allocation.`
-          : `You've over-allocated by ${fmt(Math.abs(remaining), currency)}. Reduce a bucket to fix this.`
-      );
+          : `You've over-allocated by ${fmt(Math.abs(remaining), currency)}. Reduce a bucket to fix this.`,
+        duration: 5000,
+      });
       return;
     }
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (!currentUser) { setSaving(false); Alert.alert('Session expired', 'Please sign in again.'); return; }
+    if (!currentUser) {
+      setSaving(false);
+      showToast({ type: 'error', title: 'Session expired', message: 'Please sign in again.' });
+      return;
+    }
+
+    const currentNames = new Set(buckets.map((b) => b.name));
+    // Delete any rows for buckets that were removed this session
+    const removed = [...originalBucketNamesRef.current].filter((n) => !currentNames.has(n));
+    if (removed.length > 0) {
+      await (supabase as any)
+        .from('allocations')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('month', month)
+        .eq('year', year)
+        .in('bucket_name', removed);
+    }
+
     const rows = buckets.map((b) => ({
       user_id: currentUser.id, household_id: household?.id ?? null,
       month, year, bucket_name: b.name, amount: b.amount,
@@ -446,8 +481,12 @@ export default function AllocationScreen() {
     }));
     const { error } = await (supabase as any).from('allocations').upsert(rows, { onConflict: 'user_id,month,year,bucket_name' });
     setSaving(false);
-    if (error) Alert.alert('Save failed', error.message);
-    else Alert.alert('Saved ✓', 'Your allocation for ' + monthLabel + ' has been saved.');
+    if (error) {
+      showToast({ type: 'error', title: 'Save failed', message: error.message });
+    } else {
+      originalBucketNamesRef.current = currentNames;
+      showToast({ type: 'success', title: 'Saved ✓', message: `Your allocation for ${monthLabel} has been saved.` });
+    }
   }
 
   function autoBalance() {
@@ -620,8 +659,14 @@ export default function AllocationScreen() {
         </ScrollView>
       )}
 
-      {/* ── Plan view (existing) ─────────────────────────── */}
-      {viewMode === 'plan' && <ScrollView
+      {/* ── Plan view ────────────────────────────────────── */}
+      {viewMode === 'plan' && (
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+      <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={s.scrollContent}
@@ -684,7 +729,7 @@ export default function AllocationScreen() {
           </View>
 
           {/* ── Bucket Cards ─────────────────────────────────── */}
-          <View style={s.section}>
+          <View style={s.section} onLayout={(e) => { sectionTopRef.current = e.nativeEvent.layout.y; }}>
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Budget Buckets</Text>
               <TouchableOpacity style={s.addBucketBtn} onPress={() => setShowAddBucket(true)} activeOpacity={0.8}>
@@ -743,15 +788,13 @@ export default function AllocationScreen() {
                         selectionColor={bucket.color + '55'}
                       />
                     </View>
-                    {bucket.isCustom && (
-                      <TouchableOpacity
-                        style={s.removeBucketBtn}
-                        onPress={() => removeCustomBucket(bucket.name)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                      style={s.removeBucketBtn}
+                      onPress={() => removeBucket(bucket)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
                   <View style={[s.bucketBarTrack, { marginTop: 10 }]}>
                     <View style={[s.bucketBarFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: bucket.color }]} />
@@ -768,7 +811,9 @@ export default function AllocationScreen() {
               {'"Give every naira a name — Steward budgeting principle"'}
             </Text>
           </View>
-      </ScrollView>}
+      </ScrollView>
+      </KeyboardAvoidingView>
+      )}
 
       <AddBucketModal
         visible={showAddBucket}
@@ -778,7 +823,30 @@ export default function AllocationScreen() {
         existingNames={existingNames}
         colors={colors}
         isDark={isDark}
+        onValidationError={(title, message) => showToast({ type: 'warning', title, message })}
       />
+
+      {/* ── Confirm Remove Modal ─────────────────────────── */}
+      <ConfirmModal
+        visible={confirmRemove.visible}
+        icon="trash-outline"
+        title="Remove bucket?"
+        message={
+          confirmRemove.bucket
+            ? DEFAULT_NAMES.has(confirmRemove.bucket.name)
+              ? `Remove "${confirmRemove.bucket.name}" from this month's plan? It will reappear next month.`
+              : `Permanently remove "${confirmRemove.bucket.name}" from your allocation?`
+            : ''
+        }
+        confirmLabel="Remove"
+        cancelLabel="Keep it"
+        destructive
+        onConfirm={confirmRemoveBucket}
+        onCancel={() => setConfirmRemove({ visible: false, bucket: null })}
+      />
+
+      {/* ── Toast notifications ───────────────────────────── */}
+      {ToastElement}
 
       {/* ── Monthly Reset Sheet ─────────────────────────────── */}
       <BottomSheetModal

@@ -25,6 +25,15 @@ import WeeklyDigest from '@/src/components/WeeklyDigest';
 
 const MILESTONE_COLORS = ['#60A5FA','#10B97A','#C9943F','#A78BFA','#F472B6','#F59E0B','#34D399','#818CF8'];
 
+// ─── Health Tier ──────────────────────────────────────────────────────────────
+function getHealthTier(score: number): { label: string; sub: string } {
+  if (score >= 90) return { label: 'Exceptional',  sub: 'Top-tier financial health' };
+  if (score >= 75) return { label: 'Healthy',       sub: 'Strong financial foundation' };
+  if (score >= 60) return { label: 'Fair',           sub: 'Good progress, room to grow' };
+  if (score >= 50) return { label: 'Developing',    sub: 'Building financial habits' };
+  return              { label: 'At Risk',           sub: 'Needs immediate attention' };
+}
+
 // ─── Grade Engine ─────────────────────────────────────────────────────────────
 function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
   const totalIncome = sources.reduce((s, r) => s + r.amount, 0);
@@ -73,10 +82,10 @@ function calcGrade(sources: IncomeSource[], allocs: Allocation[]) {
   return {
     grade, total,
     dimensions: [
-      { label: 'Income Allocation',    score: allocScore,     max: 25 },
-      { label: 'Savings Rate',         score: savingsScore,   max: 25 },
-      { label: 'Housing Threshold',    score: housingScore,   max: 20 },
-      { label: 'Emergency Fund',       score: emergencyScore, max: 15 },
+      { label: 'Budget Adherence',      score: allocScore,     max: 25 },
+      { label: 'Savings Rate',          score: savingsScore,   max: 25 },
+      { label: 'Housing Cost Ratio',    score: housingScore,   max: 20 },
+      { label: 'Emergency Reserves',    score: emergencyScore, max: 15 },
       { label: 'Income Diversification', score: sourceScore,  max: 15 },
     ],
     allocPct, savingsPct, housingPct, emergencyPct,
@@ -153,14 +162,19 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
     score >= 50 ? colors.warning :
     colors.danger;
 
+  const tier = getHealthTier(score);
+  const now = new Date();
+  const monthLabel = now.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+
   return (
     <View style={[gr.card, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: isDark ? 1 : 0 }]}>
+      {/* Header */}
       <View style={gr.header}>
         <View style={[gr.divLine, { backgroundColor: colors.border }]} />
-        <Text style={[gr.waecLabel, { color: colors.textMuted }]}>W·A·E·C  REPORT CARD</Text>
+        <Text style={[gr.scorecardLabel, { color: colors.textMuted }]}>FINANCIAL HEALTH SCORECARD</Text>
         <View style={[gr.divLine, { backgroundColor: colors.border }]} />
       </View>
-      <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward Financial Intelligence</Text>
+      <Text style={[gr.subLabel, { color: colors.textMuted }]}>Steward · {monthLabel}</Text>
 
       {/* Grade Ring */}
       <View style={[gr.outerRing, { borderColor: gradeColor + '28' }]}>
@@ -171,12 +185,15 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
         </View>
       </View>
 
-      <Text style={[gr.scoreText, { color: colors.textSecondary }]}>
+      {/* Health Tier badge */}
+      <View style={[gr.tierBadge, { backgroundColor: gradeColor + '18', borderColor: gradeColor + '44' }]}>
+        <Text style={[gr.tierLabel, { color: gradeColor }]}>{tier.label}</Text>
+      </View>
+      <Text style={[gr.tierSub, { color: colors.textMuted }]}>{tier.sub}</Text>
+
+      <Text style={[gr.scoreText, { color: colors.textSecondary, marginTop: 12 }]}>
         Score <Text style={[gr.scoreNum, { color: gradeColor, fontFamily: FONTS.display }]}>{score}</Text>
         <Text style={{ color: colors.textMuted }}> / 100</Text>
-      </Text>
-      <Text style={[gr.period, { color: colors.textMuted }]}>
-        {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })} · Monthly Report
       </Text>
 
       <View style={[gr.barTrack, { backgroundColor: colors.border }]}>
@@ -186,11 +203,11 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       <TouchableOpacity
         style={[gr.shareRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() =>
-          Share.share({ message: `My Steward financial grade for this month: ${grade} (${score}/100). Give every naira a purpose — stewardapp.com` })
+          Share.share({ message: `My Steward Financial Health Score: ${tier.label} — ${grade} (${score}/100). Give every penny a purpose — stewardapp.com` })
         }
       >
         <Ionicons name="share-social-outline" size={14} color={colors.textMuted} />
-        <Text style={[gr.shareText, { color: colors.textMuted }]}>Share your grade</Text>
+        <Text style={[gr.shareText, { color: colors.textMuted }]}>Share your score</Text>
       </TouchableOpacity>
     </View>
   );
@@ -200,19 +217,24 @@ const gr = StyleSheet.create({
   card: { margin: 20, marginBottom: 8, borderRadius: 24, padding: 28, alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, width: '100%' },
   divLine: { flex: 1, height: 1 },
-  waecLabel: { fontFamily: FONTS.semibold, fontSize: 11, letterSpacing: 3 },
+  scorecardLabel: { fontFamily: FONTS.semibold, fontSize: 10, letterSpacing: 2.5, textAlign: 'center' },
   subLabel: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 24 },
   outerRing: {
     width: 172, height: 172, borderRadius: 86,
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   ring: { width: 160, height: 160, borderRadius: 80, borderWidth: 8, alignItems: 'center', justifyContent: 'center' },
   ringInner: { width: 136, height: 136, borderRadius: 68, alignItems: 'center', justifyContent: 'center' },
   gradeLetter: { fontFamily: FONTS.display, fontSize: 62, lineHeight: 68, letterSpacing: -2 },
+  tierBadge: {
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 16, paddingVertical: 5, marginBottom: 4,
+  },
+  tierLabel: { fontFamily: FONTS.semibold, fontSize: 13, letterSpacing: 0.3 },
+  tierSub: { fontFamily: FONTS.regular, fontSize: 11, marginBottom: 2 },
   scoreText: { fontFamily: FONTS.semibold, fontSize: 16, marginBottom: 4 },
   scoreNum: { fontSize: 26 },
-  period: { fontFamily: FONTS.regular, fontSize: 12, marginBottom: 16 },
   barTrack: { width: '100%', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 12 },
   barFill: { height: 6, borderRadius: 3 },
   shareRow: {
@@ -232,7 +254,7 @@ function EmptyReport({ colors }: { colors: any }) {
         No data yet
       </Text>
       <Text style={{ fontFamily: FONTS.regular, fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 22 }}>
-        Add income sources and save your monthly allocation to generate your W.A.E.C. report.
+        Add income sources and save your monthly allocation to generate your Financial Health Scorecard.
       </Text>
     </View>
   );
@@ -295,9 +317,9 @@ export default function ReportScreen() {
           const { data: histAllocs } = await q;
           if (histAllocs && histAllocs.length > 0) {
             const { total } = calcGrade(sources, histAllocs);
-            trend.push({ label: d.toLocaleString('en-NG', { month: 'short' }), score: total });
+            trend.push({ label: d.toLocaleString(undefined, { month: 'short' }), score: total });
           } else {
-            trend.push({ label: d.toLocaleString('en-NG', { month: 'short' }), score: 0 });
+            trend.push({ label: d.toLocaleString(undefined, { month: 'short' }), score: 0 });
           }
         }
         setTrendScores(trend);
@@ -338,7 +360,7 @@ export default function ReportScreen() {
         <View>
           <Text style={s.headerTitle}>Financial Report</Text>
           <Text style={s.headerSub}>
-            {now.toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+            {now.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
           </Text>
         </View>
         <TouchableOpacity style={s.refreshBtn} onPress={load}>
@@ -657,7 +679,7 @@ export default function ReportScreen() {
                 </View>
                 <Text style={[s.advisoryTitle, { color: 'rgba(255,255,255,0.92)' }]}>Steward Advisory</Text>
                 <Text style={[s.advisoryMeta, { color: 'rgba(255,255,255,0.55)' }]}>
-                  AI · {new Date().toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+                  AI · {new Date().toLocaleString(undefined, { month: 'long', year: 'numeric' })}
                 </Text>
               </View>
               <Text style={[s.advisoryText, { color: 'rgba(255,255,255,0.82)' }]}>
@@ -683,7 +705,7 @@ export default function ReportScreen() {
                 style={[s.downloadBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, flex: 1 }]}
                 activeOpacity={0.85}
                 onPress={() => {
-                  const monthLabel = now.toLocaleString('en-NG', { month: 'long', year: 'numeric' });
+                  const monthLabel = now.toLocaleString(undefined, { month: 'long', year: 'numeric' });
                   const spendLines = Object.entries(actualSpends).length > 0
                     ? Object.entries(actualSpends)
                         .sort((a, b) => b[1] - a[1])
@@ -693,24 +715,27 @@ export default function ReportScreen() {
                   const dimLines = data!.dimensions
                     .map((d) => `  ${d.label.padEnd(24)} ${d.score}/${d.max}`)
                     .join('\n');
+                  const tier = getHealthTier(data!.total);
                   Share.share({
-                    title: `Steward Report — ${monthLabel}`,
+                    title: `Steward Financial Health Report — ${monthLabel}`,
                     message: [
-                      `STEWARD FINANCIAL REPORT`,
+                      `STEWARD FINANCIAL HEALTH SCORECARD`,
                       `${monthLabel}`,
                       ``,
-                      `GRADE: ${data!.grade}   SCORE: ${data!.total}/100`,
+                      `RATING: ${tier.label.toUpperCase()}`,
+                      `GRADE:  ${data!.grade}   SCORE: ${data!.total}/100`,
+                      `${tier.sub}`,
                       ``,
                       `--- SCORE BREAKDOWN ---`,
                       dimLines,
                       ``,
                       `--- KEY METRICS ---`,
-                      `  Income Allocated:  ${data!.allocPct.toFixed(0)}%`,
-                      `  Savings Rate:      ${data!.savingsPct.toFixed(0)}%`,
-                      `  Housing:           ${data!.housingPct.toFixed(0)}%`,
-                      `  Emergency Fund:    ${data!.emergencyPct.toFixed(0)}%`,
-                      `  Income Sources:    ${data!.sourceCount}`,
-                      `  Total Income:      ${fmt(data!.totalIncome, currency)}`,
+                      `  Budget Adherence:    ${data!.allocPct.toFixed(0)}%`,
+                      `  Savings Rate:        ${data!.savingsPct.toFixed(0)}%`,
+                      `  Housing Cost Ratio:  ${data!.housingPct.toFixed(0)}%`,
+                      `  Emergency Reserves:  ${data!.emergencyPct.toFixed(0)}%`,
+                      `  Income Sources:      ${data!.sourceCount}`,
+                      `  Total Income:        ${fmt(data!.totalIncome, currency)}`,
                       ``,
                       `--- ACTUAL SPENDING ---`,
                       spendLines,
@@ -782,11 +807,11 @@ export default function ReportScreen() {
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: 'rgba(212,175,55,0.7)', letterSpacing: 3, marginBottom: 2 }}>
-                  W·A·E·C  REPORT CARD
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 10, color: 'rgba(212,175,55,0.7)', letterSpacing: 2.5, marginBottom: 2 }}>
+                  FINANCIAL HEALTH SCORECARD
                 </Text>
                 <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
-                  Steward Financial Intelligence
+                  Steward · {now.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
                 </Text>
               </View>
               <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(212,175,55,0.18)', alignItems: 'center', justifyContent: 'center' }}>
@@ -806,13 +831,19 @@ export default function ReportScreen() {
                   {data!.grade}
                 </Text>
               </View>
-              <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: 'rgba(255,255,255,0.70)', marginTop: 10 }}>
+              <View style={{
+                marginTop: 12, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(212,175,55,0.45)',
+                backgroundColor: 'rgba(212,175,55,0.12)',
+                paddingHorizontal: 14, paddingVertical: 5,
+              }}>
+                <Text style={{ fontFamily: FONTS.semibold, fontSize: 13, color: '#D4AF37' }}>
+                  {getHealthTier(data!.total).label}
+                </Text>
+              </View>
+              <Text style={{ fontFamily: FONTS.semibold, fontSize: 14, color: 'rgba(255,255,255,0.55)', marginTop: 8 }}>
                 Score{' '}
-                <Text style={{ fontFamily: FONTS.display, fontSize: 22, color: '#D4AF37' }}>{data!.total}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.40)' }}> / 100</Text>
-              </Text>
-              <Text style={{ fontFamily: FONTS.regular, fontSize: 11, color: 'rgba(255,255,255,0.40)', marginTop: 4 }}>
-                {now.toLocaleString('en-NG', { month: 'long', year: 'numeric' })}
+                <Text style={{ fontFamily: FONTS.display, fontSize: 20, color: '#D4AF37' }}>{data!.total}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.35)' }}> / 100</Text>
               </Text>
             </View>
 
@@ -848,20 +879,23 @@ export default function ReportScreen() {
                 style={{ flex: 1, backgroundColor: '#D4AF37', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
                 activeOpacity={0.85}
                 onPress={() => {
-                  const monthLabel = now.toLocaleString('en-NG', { month: 'long', year: 'numeric' });
+                  const monthLabel = now.toLocaleString(undefined, { month: 'long', year: 'numeric' });
                   Share.share({
-                    title: 'My Steward Financial Grade',
+                    title: 'My Steward Financial Health Score',
                     message: [
-                      `🏆 STEWARD FINANCIAL REPORT — ${monthLabel}`,
-                      `━━━━━━━━━━━━━━━━━━`,
-                      `Grade: ${data!.grade}   Score: ${data!.total}/100`,
-                      `━━━━━━━━━━━━━━━━━━`,
-                      `💰 Income Allocated: ${data!.allocPct.toFixed(0)}%`,
-                      `📊 Savings Rate: ${data!.savingsPct.toFixed(0)}%`,
-                      `🏠 Housing: ${data!.housingPct.toFixed(0)}%`,
-                      `🛡 Emergency Fund: ${data!.emergencyPct.toFixed(0)}%`,
-                      `━━━━━━━━━━━━━━━━━━`,
-                      `Give every coin a purpose — stewardapp.com`,
+                      `STEWARD FINANCIAL HEALTH SCORECARD`,
+                      `${now.toLocaleString(undefined, { month: 'long', year: 'numeric' })}`,
+                      `━━━━━━━━━━━━━━━━━━━━━━`,
+                      `Rating: ${getHealthTier(data!.total).label}`,
+                      `Grade:  ${data!.grade}   Score: ${data!.total}/100`,
+                      `━━━━━━━━━━━━━━━━━━━━━━`,
+                      `Budget Adherence:    ${data!.allocPct.toFixed(0)}%`,
+                      `Savings Rate:        ${data!.savingsPct.toFixed(0)}%`,
+                      `Housing Cost Ratio:  ${data!.housingPct.toFixed(0)}%`,
+                      `Emergency Reserves:  ${data!.emergencyPct.toFixed(0)}%`,
+                      `Income Sources:      ${data!.sourceCount}`,
+                      `━━━━━━━━━━━━━━━━━━━━━━`,
+                      `Give every penny a purpose — stewardapp.com`,
                     ].join('\n'),
                   });
                 }}
