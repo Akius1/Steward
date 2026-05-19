@@ -48,7 +48,7 @@ const HOW_IT_WORKS = [
     color: '#60A5FA',
     bg:    '#60A5FA22',
     title: 'Allocate to buckets',
-    desc:  'Decide exactly where each naira goes — rent, savings, food, wants and more.',
+    desc:  'Decide exactly where each {unit} goes — rent, savings, food, wants and more.',
   },
   {
     icon: 'bar-chart-outline' as const,
@@ -86,7 +86,7 @@ const BUDGET_STYLES = [
     bg:    '#A78BFA20',
     title: 'Custom Buckets',
     sub:   'Full control',
-    desc:  'You decide how every naira is split — total flexibility.',
+    desc:  'You decide how every {unit} is split — total flexibility.',
   },
 ] as const;
 
@@ -614,7 +614,9 @@ export default function OnboardingScreen() {
                     </View>
                     <Text style={{ fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary }}>{item.title}</Text>
                   </View>
-                  <Text style={{ fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, lineHeight: 19 }}>{item.desc}</Text>
+                  <Text style={{ fontFamily: FONTS.regular, fontSize: 13, color: colors.textMuted, lineHeight: 19 }}>
+                    {item.desc.replace('{unit}', CURRENCIES[selectedCurrency].unit)}
+                  </Text>
                 </View>
               </Animated.View>
             ))}
@@ -792,7 +794,9 @@ export default function OnboardingScreen() {
                           {style.sub.toUpperCase()}
                         </Text>
                       </View>
-                      <Text style={{ fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted, lineHeight: 17 }}>{style.desc}</Text>
+                      <Text style={{ fontFamily: FONTS.regular, fontSize: 12, color: colors.textMuted, lineHeight: 17 }}>
+                        {style.desc.replace('{unit}', CURRENCIES[selectedCurrency].unit)}
+                      </Text>
                     </View>
                     {active
                       ? <Ionicons name="checkmark-circle" size={22} color={colors.gold} />
@@ -848,7 +852,7 @@ export default function OnboardingScreen() {
                 {`You're all set,\n${firstName}.`}
               </Text>
               <Text style={{ fontFamily: FONTS.regular, fontSize: 15, color: colors.textMuted, textAlign: 'center', lineHeight: 24, marginBottom: 32 }}>
-                Steward is ready to help you make the most of every coin.
+                {`Steward is ready to help you make the most of every ${CURRENCIES[selectedCurrency].unit}.`}
               </Text>
 
               {/* Summary pills */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   View,
   Text,
@@ -352,7 +353,8 @@ function AddTransactionModal({
   const [isCustom, setIsCustom] = useState(false);
   const [note, setNote] = useState('');
   const [dateChoice, setDateChoice] = useState<'today' | 'yesterday' | 'other'>('today');
-  const [otherDate, setOtherDate] = useState('');
+  const [otherDate, setOtherDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<RecurringFrequency>('monthly');
@@ -378,7 +380,8 @@ function AddTransactionModal({
       }
       setNote(transaction.note ?? '');
       setDateChoice('other');
-      setOtherDate(transaction.date.split('-').reverse().join('/'));
+      const [y, m, d] = transaction.date.split('-').map(Number);
+      setOtherDate(new Date(y, m - 1, d));
     }
     if (!visible) reset();
   }, [visible]);
@@ -391,13 +394,7 @@ function AddTransactionModal({
       yd.setDate(today.getDate() - 1);
       return yd.toISOString().slice(0, 10);
     }
-    const parts = otherDate.trim().split('/');
-    if (parts.length === 3) {
-      const [d, m, y] = parts;
-      const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
-      if (!isNaN(dateObj.getTime())) return dateObj.toISOString().slice(0, 10);
-    }
-    return today.toISOString().slice(0, 10);
+    return otherDate.toISOString().slice(0, 10);
   }
 
   function reset() {
@@ -408,7 +405,8 @@ function AddTransactionModal({
     setIsCustom(false);
     setNote('');
     setDateChoice('today');
-    setOtherDate('');
+    setOtherDate(new Date());
+    setShowDatePicker(false);
     setIsRecurring(false);
     setFrequency('monthly');
   }
@@ -711,17 +709,37 @@ function AddTransactionModal({
             </View>
 
             {dateChoice === 'other' && (
-              <TextInput
-                style={{ ...inputStyle, marginBottom: 24 }}
-                placeholder="dd/mm/yyyy"
-                placeholderTextColor={colors.textMuted}
-                value={otherDate}
-                onChangeText={setOtherDate}
-                keyboardType="numbers-and-punctuation"
-                returnKeyType="done"
-                maxLength={10}
-                cursorColor={colors.gold}
-              />
+              <View style={{ marginBottom: 24 }}>
+                <TouchableOpacity
+                  style={{
+                    ...inputStyle,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={{ fontFamily: FONTS.medium, fontSize: 15, color: colors.textPrimary }}>
+                    {otherDate.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color={colors.gold} />
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={otherDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    maximumDate={new Date()}
+                    onChange={(_, selected) => {
+                      setShowDatePicker(Platform.OS === 'ios');
+                      if (selected) setOtherDate(selected);
+                    }}
+                    themeVariant={isDark ? 'dark' : 'light'}
+                  />
+                )}
+              </View>
             )}
 
             {/* Recurring */}
