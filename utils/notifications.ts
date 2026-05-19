@@ -86,7 +86,7 @@ export async function scheduleAllNotifications(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'New month, new plan 📋',
-      body: "Give every naira a purpose — set up this month's budget.",
+      body: "Give every coin a purpose — set up this month's budget.",
       ...(channelId ? { channelId } : {}),
     },
     trigger: {

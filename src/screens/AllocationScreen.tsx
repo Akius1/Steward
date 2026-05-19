@@ -68,12 +68,12 @@ const BUCKET_CATEGORY_MAP: Record<string, string[]> = {
 
 // ─── Add Bucket Modal ─────────────────────────────────────────────────────────
 function AddBucketModal({
-  visible, onClose, onAdd, totalIncome, existingNames, colors, isDark, onValidationError,
+  visible, onClose, onAdd, totalIncome, existingNames, colors, isDark, currency, onValidationError,
 }: {
   visible: boolean; onClose: () => void;
   onAdd: (name: string, pct: number) => void;
   totalIncome: number; existingNames: Set<string>;
-  colors: any; isDark: boolean;
+  colors: any; isDark: boolean; currency: CurrencyCode;
   onValidationError: (title: string, message: string) => void;
 }) {
   const [name, setName] = useState('');
@@ -186,7 +186,7 @@ function AddBucketModal({
           }}>
             <Ionicons name="calculator-outline" size={14} color={colors.gold} />
             <Text style={{ fontFamily: FONTS.medium, fontSize: 13, color: colors.gold }}>
-              That's {fmt(amount, 'NGN')} of your income
+              That's {fmt(amount, currency)} of your income
             </Text>
           </View>
         )}
@@ -225,7 +225,6 @@ export default function AllocationScreen() {
   const [viewMode, setViewMode] = useState<'plan' | 'actual'>('plan');
   const [actualSpends, setActualSpends] = useState<Record<string, number>>({});
   const [actualLoading, setActualLoading] = useState(false);
-  const [actualLoaded, setActualLoaded] = useState(false);
 
   // ── Monthly Reset ─────────────────────────────────────────────────────────
   const resetSheetRef = useRef<BottomSheetModal>(null);
@@ -339,7 +338,7 @@ export default function AllocationScreen() {
   useEffect(() => { load(); }, [load]);
 
   const loadActual = useCallback(async () => {
-    if (!user || actualLoaded) return;
+    if (!user) return;
     setActualLoading(true);
     const start = `${year}-${String(month).padStart(2, '0')}-01`;
     const nextM = month === 12 ? 1 : month + 1;
@@ -360,9 +359,8 @@ export default function AllocationScreen() {
       sums[row.category] = (sums[row.category] ?? 0) + row.amount;
     }
     setActualSpends(sums);
-    setActualLoaded(true);
     setActualLoading(false);
-  }, [user, household, month, year, actualLoaded]);
+  }, [user, household, month, year]);
 
   function handleToggleMode(mode: 'plan' | 'actual') {
     setViewMode(mode);
@@ -614,12 +612,12 @@ export default function AllocationScreen() {
 
                 return (
                   <View key={bucket.name} style={[s.bucketCard, i > 0 && s.mt10]}>
-                    <View style={s.bucketTop}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22', borderColor: bucket.color + '44' }]}>
-                        <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
+                        <Ionicons name={bucket.icon as any} size={18} color={bucket.color} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={s.bucketName}>{bucket.name}</Text>
+                        <Text style={s.bucketName} numberOfLines={1}>{bucket.name}</Text>
                         <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
                           <View>
                             <Text style={{ fontFamily: FONTS.medium, fontSize: 10, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>Budget</Text>
@@ -752,19 +750,31 @@ export default function AllocationScreen() {
                   style={[s.bucketCard, i > 0 && s.mt10]}
                   onLayout={(e) => { cardOffsets.current[bucket.name] = e.nativeEvent.layout.y; }}
                 >
-                  <View style={s.bucketTop}>
+                  {/* ── Row 1: Icon · Title · Status dot · Remove ── */}
+                  <View style={s.bucketRow1}>
                     <View style={[s.bucketIconWrap, { backgroundColor: bucket.color + '22', borderColor: bucket.color + '44' }]}>
-                      <Ionicons name={bucket.icon as any} size={20} color={bucket.color} />
+                      <Ionicons name={bucket.icon as any} size={18} color={bucket.color} />
                     </View>
-                    <View style={s.bucketNameCol}>
-                      <View style={s.bucketNameRow}>
-                        <Text style={s.bucketName}>{bucket.name}</Text>
-                        {threshold && (
-                          <View style={[s.thresholdDot, { backgroundColor: statusColor }]} />
-                        )}
-                      </View>
+                    <Text style={s.bucketName} numberOfLines={1}>{bucket.name}</Text>
+                    {threshold && (
+                      <View style={[s.thresholdDot, { backgroundColor: statusColor }]} />
+                    )}
+                    <TouchableOpacity
+                      style={s.removeBucketBtn}
+                      onPress={() => removeBucket(bucket)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+                    >
+                      <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* ── Row 2: Meta (hint + %) · Amount input ── */}
+                  <View style={s.bucketRow2}>
+                    <View style={s.bucketMeta}>
                       {threshold && (
-                        <Text style={[s.thresholdInline, { color: colors.textMuted }]}>{threshold.message}</Text>
+                        <Text style={[s.thresholdInline, { color: colors.textMuted }]} numberOfLines={1}>
+                          {threshold.message}
+                        </Text>
                       )}
                       <Text style={[s.bucketPct, { color: bucket.color }]}>{pct}% of income</Text>
                     </View>
@@ -773,7 +783,7 @@ export default function AllocationScreen() {
                         {CURRENCIES[currency].symbol}
                       </Text>
                       <TextInput
-                        style={[s.amountInput, { color: isFocused ? colors.textPrimary : colors.textPrimary }]}
+                        style={s.amountInput}
                         value={bucket.amount > 0 ? formatInput(bucket.amount.toString()) : ''}
                         placeholder="0"
                         placeholderTextColor={colors.textMuted}
@@ -788,14 +798,9 @@ export default function AllocationScreen() {
                         selectionColor={bucket.color + '55'}
                       />
                     </View>
-                    <TouchableOpacity
-                      style={s.removeBucketBtn}
-                      onPress={() => removeBucket(bucket)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
                   </View>
+
+                  {/* ── Progress bar ── */}
                   <View style={[s.bucketBarTrack, { marginTop: 10 }]}>
                     <View style={[s.bucketBarFill, { width: `${Math.min(pct, 100)}%` as any, backgroundColor: bucket.color }]} />
                   </View>
@@ -808,7 +813,7 @@ export default function AllocationScreen() {
               <Text style={s.addBucketCardTxt}>Add a custom bucket</Text>
             </TouchableOpacity>
             <Text style={s.allocationQuote}>
-              {'"Give every naira a name — Steward budgeting principle"'}
+              {`"Give every ${CURRENCIES[currency].unit} a name — Steward budgeting principle"`}
             </Text>
           </View>
       </ScrollView>
@@ -823,6 +828,7 @@ export default function AllocationScreen() {
         existingNames={existingNames}
         colors={colors}
         isDark={isDark}
+        currency={currency}
         onValidationError={(title, message) => showToast({ type: 'warning', title, message })}
       />
 
@@ -978,25 +984,40 @@ function makeStyles(colors: any, isDark: boolean) {
 
     bucketCard: {
       backgroundColor: colors.card, borderRadius: 16,
-      borderWidth: isDark ? 1 : 0, borderColor: colors.border, padding: 14,
+      borderWidth: isDark ? 1 : 0, borderColor: colors.border,
+      paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12,
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 1 }, shadowOpacity: isDark ? 0 : 0.06, shadowRadius: 4, elevation: isDark ? 0 : 2,
     },
-    bucketTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    bucketIconWrap: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1 },
-    bucketNameCol: { flex: 1, minWidth: 0 },
-    bucketNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 1 },
-    bucketName: { fontFamily: FONTS.headingItalic, fontSize: 15, color: colors.textPrimary, flexShrink: 1 },
-    thresholdDot: { width: 7, height: 7, borderRadius: 4, marginLeft: 5, flexShrink: 0 },
-    thresholdInline: { fontFamily: FONTS.regular, fontSize: 11, marginBottom: 1, color: colors.textMuted },
-    bucketPct: { fontFamily: FONTS.medium, fontSize: 11 },
+    // Row 1: icon · name · dot · remove
+    bucketRow1: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10,
+    },
+    bucketIconWrap: {
+      width: 36, height: 36, borderRadius: 10,
+      alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1,
+    },
+    bucketName: {
+      fontFamily: FONTS.semibold, fontSize: 15, color: colors.textPrimary,
+      flex: 1, numberOfLines: 1,
+    },
+    thresholdDot: { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
+    removeBucketBtn: { marginLeft: 2, flexShrink: 0 },
+
+    // Row 2: meta text · amount input
+    bucketRow2: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 44,
+    },
+    bucketMeta: { flex: 1, minWidth: 0 },
+    thresholdInline: { fontFamily: FONTS.regular, fontSize: 11, color: colors.textMuted, marginBottom: 1 },
+    bucketPct: { fontFamily: FONTS.semibold, fontSize: 12 },
 
     amountWrap: {
       flexDirection: 'row', alignItems: 'center',
       backgroundColor: colors.surface, borderRadius: 12,
       borderWidth: 1.5, borderColor: colors.border,
-      paddingHorizontal: 10, paddingVertical: 11,
-      width: 118, flexShrink: 0,
+      paddingHorizontal: 10, paddingVertical: 10,
+      width: 130, flexShrink: 0,
     },
     currencySign: { fontFamily: FONTS.semibold, fontSize: 14, color: colors.textMuted, marginRight: 3 },
     amountInput: {
@@ -1007,8 +1028,6 @@ function makeStyles(colors: any, isDark: boolean) {
       textAlignVertical: 'center',
       padding: 0,
     },
-
-    removeBucketBtn: { marginLeft: 8 },
 
     addBucketCard: {
       flexDirection: 'row', alignItems: 'center', gap: 10,

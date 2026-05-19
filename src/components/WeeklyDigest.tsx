@@ -9,7 +9,7 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
-import { fmt } from '@/utils/currency';
+import { fmt, CURRENCIES } from '@/utils/currency';
 
 interface DigestData {
   weekSpent: number;
@@ -158,7 +158,7 @@ export default function WeeklyDigest({ visible, onClose }: WeeklyDigestProps) {
         ``,
         `💡 "${digest.tip}"`,
         ``,
-        `Give every coin a purpose — stewardapp.com`,
+        `Give every ${CURRENCIES[currency].unit} a purpose — stewardapp.com`,
       ].join('\n'),
     });
   }

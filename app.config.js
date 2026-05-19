@@ -37,6 +37,7 @@ module.exports = {
     },
     plugins: [
       'expo-router',
+      '@react-native-community/datetimepicker',
       // Apple Sign-In — iOS only, skip on Android to avoid Gradle errors
       ...(IS_IOS ? ['expo-apple-authentication'] : []),
       [

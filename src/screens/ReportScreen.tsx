@@ -19,7 +19,8 @@ import { supabase } from '@/utils/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FONTS } from '@/constants/theme';
-import { fmt } from '@/utils/currency';
+import { fmt, CURRENCIES } from '@/utils/currency';
+import type { CurrencyCode } from '@/utils/currency';
 import type { IncomeSource, Allocation, Milestone } from '@/types/database';
 import WeeklyDigest from '@/src/components/WeeklyDigest';
 
@@ -155,7 +156,7 @@ function buildSmartAdvisory(data: GradeData, actualSpends: Record<string, number
 // fmt imported from utils/currency
 
 // ─── Components ───────────────────────────────────────────────────────────────
-function GradeRing({ grade, score, colors, isDark }: { grade: string; score: number; colors: any; isDark: boolean }) {
+function GradeRing({ grade, score, currency, colors, isDark }: { grade: string; score: number; currency: CurrencyCode; colors: any; isDark: boolean }) {
   const gradeColor =
     score >= 80 ? colors.success :
     score >= 65 ? colors.gold :
@@ -203,7 +204,7 @@ function GradeRing({ grade, score, colors, isDark }: { grade: string; score: num
       <TouchableOpacity
         style={[gr.shareRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() =>
-          Share.share({ message: `My Steward Financial Health Score: ${tier.label} — ${grade} (${score}/100). Give every penny a purpose — stewardapp.com` })
+          Share.share({ message: `My Steward Financial Health Score: ${tier.label} — ${grade} (${score}/100). Give every ${CURRENCIES[currency].unit} a purpose — stewardapp.com` })
         }
       >
         <Ionicons name="share-social-outline" size={14} color={colors.textMuted} />
@@ -373,7 +374,7 @@ export default function ReportScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
           {/* Grade Ring */}
-          <GradeRing grade={data!.grade} score={data!.total} colors={colors} isDark={isDark} />
+          <GradeRing grade={data!.grade} score={data!.total} currency={currency} colors={colors} isDark={isDark} />
 
           {/* Performance Breakdown */}
           <View style={s.section}>
@@ -895,7 +896,7 @@ export default function ReportScreen() {
                       `Emergency Reserves:  ${data!.emergencyPct.toFixed(0)}%`,
                       `Income Sources:      ${data!.sourceCount}`,
                       `━━━━━━━━━━━━━━━━━━━━━━`,
-                      `Give every penny a purpose — stewardapp.com`,
+                      `Give every ${CURRENCIES[currency].unit} a purpose — stewardapp.com`,
                     ].join('\n'),
                   });
                 }}

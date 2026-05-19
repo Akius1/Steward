@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import {
   BottomSheetModal,
@@ -216,7 +217,7 @@ function AddMilestoneSheet({
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
-      enableDynamicSizing={true}
+      snapPoints={['60%', '90%']}
       backdropComponent={(props) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
       )}
@@ -226,7 +227,7 @@ function AddMilestoneSheet({
     >
       <BottomSheetScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 120 : 48 }}
       >
         <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 4, marginTop: 8 }}>
           {editMilestone ? 'Edit Goal' : 'Add Life Goal'}
@@ -400,10 +401,9 @@ function EditSavedSheet({ visible, milestone, onClose, onSave, colors, isDark, c
   return (
     <BottomSheetModal
       ref={sheetRef}
-      keyboardBehavior="interactive"
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      enableDynamicSizing={true}
+      snapPoints={['65%', '90%']}
       backdropComponent={(props) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
       )}
@@ -550,7 +550,7 @@ function AddFundSheet({ visible, onClose, onAdd, colors, isDark, currency, editF
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
-      enableDynamicSizing={true}
+      snapPoints={['60%', '90%']}
       backdropComponent={(props) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
       )}
@@ -560,7 +560,7 @@ function AddFundSheet({ visible, onClose, onAdd, colors, isDark, currency, editF
     >
       <BottomSheetScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: Platform.OS === 'android' ? 120 : 48 }}
       >
         <Text style={{ fontFamily: FONTS.heading, fontSize: 22, color: colors.textPrimary, marginBottom: 4, marginTop: 8 }}>
           {editFund ? 'Edit Fund' : 'New Sinking Fund'}
@@ -753,10 +753,9 @@ function LogContributionSheet({ visible, fund, onClose, onLog, colors, isDark, c
   return (
     <BottomSheetModal
       ref={sheetRef}
-      keyboardBehavior="interactive"
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      enableDynamicSizing={true}
+      snapPoints={['65%', '90%']}
       backdropComponent={(props) => (
         <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
       )}
