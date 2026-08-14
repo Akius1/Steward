@@ -1,177 +1,100 @@
-# Supabase CLI
+# Steward
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=develop)](https://coveralls.io/github/supabase/cli?branch=develop) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+A personal finance app for people who get paid irregularly.
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
+Most budgeting apps assume a salary lands on the same day every month. That assumption breaks for freelancers, contractors, small business owners and anyone with several income sources arriving at different times. Steward is built the other way round: you record income as it actually arrives, allocate it deliberately, and the app tracks whether your plan still holds.
 
-This repository contains all the functionality for Supabase CLI.
+Built with Expo and React Native, backed by Supabase, with an AI coach running on Anthropic's API.
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+## What it does
 
-## Getting started
+**Income first, not salary first.** You add income sources of any type, including custom ones, and record money as it comes in rather than assuming a fixed monthly figure.
 
-### Install the CLI
+**Deliberate allocation.** Income gets assigned to categories on arrival instead of being spent and reconciled later. There is a tax reserve feature specifically for self-employed users who need to hold money back before they think it is theirs.
 
-Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
+**Financial health scorecard.** The report screen grades your position across several dimensions and gives a health tier rather than a single number, so it is clear which part is weak.
 
-```bash
-npm i supabase --save-dev
-```
+**Debt planner.** Track balances, plan payoff order, and see the effect of changing what you pay each month.
 
-When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+**AI coach.** A conversational coach that can see your actual numbers and answer questions about them. It runs server side as a Supabase Edge Function calling Claude, so the API key never reaches the device.
 
-```
-NODE_OPTIONS=--no-experimental-fetch yarn add supabase
-```
+**Shared households.** Two people can share a budget through an invite flow, with row level security in Postgres deciding what each member can read and write.
 
-> **Note**
-For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+**Practical details that matter in daily use.** 16 currencies, light and dark themes, biometric unlock, local notifications, and statement import.
 
-<details>
-  <summary><b>macOS</b></summary>
+## Stack
 
-  Available via [Homebrew](https://brew.sh). To install:
+| Layer | Choice |
+|---|---|
+| App | Expo (SDK 54), React Native 0.81, React 19, TypeScript |
+| Routing | Expo Router, file based |
+| UI | Reanimated, Gesture Handler, Bottom Sheet, custom design system |
+| Auth | Supabase Auth, with Google and Apple OAuth |
+| Data | Supabase Postgres with row level security |
+| Serverless | Supabase Edge Functions (Deno) |
+| AI | Anthropic API, claude-3-haiku |
+| Storage | Expo SecureStore for tokens, AsyncStorage for preferences |
+| Builds | EAS |
 
-  ```sh
-  brew install supabase/tap/supabase
-  ```
+## Architecture notes
 
-  To install the beta release channel:
-  
-  ```sh
-  brew install supabase/tap/supabase-beta
-  brew link --overwrite supabase-beta
-  ```
-  
-  To upgrade:
+**The AI key stays server side.** The coach calls a Supabase Edge Function, which holds the Anthropic key as a secret and talks to the API. A mobile bundle is not a safe place for a credential, so the device never sees it.
 
-  ```sh
-  brew upgrade supabase
-  ```
-</details>
+**Row level security does the authorisation, not the client.** Household sharing is enforced by RLS policies in Postgres rather than by conditionals in the app. Ordering matters here: `household_id` has to exist on a table before a policy can reference it, which is why the migrations are sequenced the way they are.
 
-<details>
-  <summary><b>Windows</b></summary>
+**Web compatibility is deliberate.** React Native Web is supported, which meant working around a few native only assumptions. Bottom sheet text inputs needed a web safe wrapper, and `TextInput.State.currentlyFocusedInput` needed a polyfill.
 
-  Available via [Scoop](https://scoop.sh). To install:
+**Custom types without losing type safety at the edges.** Users can create their own income and transaction types, so the relevant fields widen to `string` while the known values stay documented in `types/database.ts`.
 
-  ```powershell
-  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-  scoop install supabase
-  ```
+## Running it locally
 
-  To upgrade:
-
-  ```powershell
-  scoop update supabase
-  ```
-</details>
-
-<details>
-  <summary><b>Linux</b></summary>
-
-  Available via [Homebrew](https://brew.sh) and Linux packages.
-
-  #### via Homebrew
-
-  To install:
-
-  ```sh
-  brew install supabase/tap/supabase
-  ```
-
-  To upgrade:
-
-  ```sh
-  brew upgrade supabase
-  ```
-
-  #### via Linux packages
-
-  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
-
-  ```sh
-  sudo apk add --allow-untrusted <...>.apk
-  ```
-
-  ```sh
-  sudo dpkg -i <...>.deb
-  ```
-
-  ```sh
-  sudo rpm -i <...>.rpm
-  ```
-
-  ```sh
-  sudo pacman -U <...>.pkg.tar.zst
-  ```
-</details>
-
-<details>
-  <summary><b>Other Platforms</b></summary>
-
-  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
-
-  ```sh
-  go install github.com/supabase/cli@latest
-  ```
-
-  Add a symlink to the binary in `$PATH` for easier access:
-
-  ```sh
-  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
-  ```
-
-  This works on other non-standard Linux distros.
-</details>
-
-<details>
-  <summary><b>Community Maintained Packages</b></summary>
-
-  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
-  To install in your working directory:
-
-  ```bash
-  pkgx install supabase
-  ```
-
-  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
-</details>
-
-### Run the CLI
+Requires Node 20 or later, and the Expo CLI.
 
 ```bash
-supabase bootstrap
+npm install
+npx expo start
 ```
 
-Or using npx:
+Create a `.env` file with your own Supabase project values:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=your-project-url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Apply the database schema from `supabase/schema.sql`, then the migrations in `supabase/migrations/` in filename order.
+
+The AI coach needs its own secret set on the deployed function, not in `.env`:
 
 ```bash
-npx supabase bootstrap
+supabase secrets set ANTHROPIC_API_KEY=your-key
+supabase functions deploy ai-coach
 ```
 
-The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+## Layout
 
-## Docs
-
-Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
-
-## Breaking changes
-
-We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
-
-However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
-
-## Developing
-
-To run from source:
-
-```sh
-# Go >= 1.22
-go run . help
 ```
+app/                  screens, Expo Router file based routes
+  (auth)/             login and signup
+  (tabs)/             dashboard, allocate, plan, report
+  ai-coach.tsx        conversational coach
+  debt-planner.tsx    payoff planning
+  transactions.tsx    transaction history
+components/           shared UI
+contexts/             app level state
+src/                  screen implementations and services
+types/                TypeScript types, including generated database types
+supabase/
+  schema.sql          base schema
+  migrations/         ordered migrations
+  functions/ai-coach/ Edge Function calling Anthropic
+utils/                helpers
+```
+
+## Status
+
+Built and maintained solo. Version 1 is feature complete and running as a preview build. I use it for my own finances, which is the main reason the awkward parts got fixed.
+
+## Licence
+
+See [LICENSE](LICENSE).
